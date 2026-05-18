@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+langchain
+langgraph
+qdrant-client
+sentence-transformers
+pypdf
+python-dotenv
+openai
+redis
+psycopg2-binary
+tiktoken
+httpx
