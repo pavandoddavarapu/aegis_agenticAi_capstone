@@ -71,7 +71,8 @@ Your job is to examine the patient's case, the execution history, and the output
 You must choose exactly one of the following agents:
 1. "clarify": Use this only if critical information is missing from the patient case (e.g. age, chief complaint) and we must ask the clinician for clarification. (Skip if the query is a greeting or general medical knowledge).
 2. "query_understand": Use this first to analyze the query, expand medical acronyms, and generate search query variants.
-3. "retrieve": Use this to fetch evidence from medical guidelines, neo4j graph databases, similar cases, and live PubMed research.
+3. "retrieve": Use this to fetch evidence from medical guidelines, neo4j graph databases, and similar cases.
+4. "research": Use this to perform live PubMed research. You should often run this in parallel with "retrieve".
 4. "evidence_eval": Use this to score and filter the retrieved documents for quality and relevance.
 5. "contradiction_check": Use this to check for clinical contradictions or conflicts in the retrieved guidelines.
 6. "reason": Use this to synthesize all evidence and write a structured clinical response.
@@ -122,8 +123,15 @@ def _determine_fallback_agent(state: AgentState) -> str:
     last_node = completed[-1]
     
     if last_node == "query_understand":
-        return "retrieve"
-    elif last_node == "retrieve":
+        return ["retrieve", "research"]
+    elif last_node in ["retrieve", "research"]:
+        # Since retrieve and research run in parallel, they both route back to plan.
+        # We only move to evidence_eval when BOTH are in the path. Or rather, just move to evidence_eval.
+        # Actually, in LangGraph, after parallel execution, the graph state merges and calls 'plan' again.
+        # But wait, 'path' will have both. So if both are in path, we proceed.
+        if "retrieve" in completed and "research" in completed:
+            return "evidence_eval"
+        return "evidence_eval" # Fallback if only one runs
         return "evidence_eval"
     elif last_node == "evidence_eval":
         return "contradiction_check"
@@ -187,7 +195,8 @@ def llm_orchestrate(state: AgentState) -> tuple[str, str]:
 
 {state_summary}
 
-Choose the next agent from: ["clarify", "query_understand", "retrieve", "evidence_eval", "contradiction_check", "reason", "validate", "reflect", "finalize"]
+Choose the next agent from: ["clarify", "query_understand", "retrieve", "research", "evidence_eval", "contradiction_check", "reason", "validate", "reflect", "finalize"]
+(You may return a list like ["retrieve", "research"] to run them in parallel if both evidence retrieval and live internet research are needed.)
 Respond ONLY with the JSON object format specified in system instructions.
 """
 
@@ -203,7 +212,9 @@ Respond ONLY with the JSON object format specified in system instructions.
             temperature=0.0
         )
         data = json.loads(response.choices[0].message.content)
-        next_agent = data.get("next_agent", "").strip()
+        next_agent = data.get("next_agent", "")
+        if isinstance(next_agent, str):
+            next_agent = next_agent.strip()
         reasoning = data.get("reasoning", "").strip()
         return next_agent, reasoning
     except Exception as exc:
@@ -589,11 +600,15 @@ def orchestration_planner(state: AgentState) -> dict:
             next_agent = "query_understand"
             reasoning = "Overridden clarify choice for research workflow."
 
-        valid_agents = {"clarify", "query_understand", "retrieve", "evidence_eval", "contradiction_check", "reason", "validate", "reflect", "finalize"}
-        if next_agent not in valid_agents:
+        valid_agents = {"clarify", "query_understand", "retrieve", "research", "evidence_eval", "contradiction_check", "reason", "validate", "reflect", "finalize"}
+        if isinstance(next_agent, str) and next_agent not in valid_agents:
             logger.warning(f"[OrchestrationPlanner] Invalid next_agent from LLM: '{next_agent}'. Using fallback.")
             next_agent = _determine_fallback_agent(state)
             reasoning = "Fallback due to invalid LLM output."
+        elif isinstance(next_agent, list):
+            next_agent = [a for a in next_agent if a in valid_agents]
+            if not next_agent:
+                next_agent = _determine_fallback_agent(state)
         else:
             logger.info(f"[OrchestrationPlanner] LLM decided next agent: '{next_agent}'. Reason: {reasoning}")
         

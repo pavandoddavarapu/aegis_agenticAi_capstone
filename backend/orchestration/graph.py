@@ -63,6 +63,7 @@ NODE_PLAN      = "plan"              # Phase 12: OrchestrationPlanner (replaces 
 NODE_CLARIFY   = "clarify"           # Phase 12: Clarification loop
 NODE_QUERY     = "query_understand"
 NODE_RETRIEVE  = "retrieve"
+NODE_RESEARCH  = "research"          # NEW Phase 13: Live internet research
 NODE_EVID_EVAL = "evidence_eval"     # Phase 12: EvidenceEvaluator
 NODE_CONTRADICT = "contradiction_check"  # Phase 12: ContradictionAnalyzer
 NODE_REASON    = "reason"
@@ -108,6 +109,25 @@ def clarification_node(state: AgentState) -> dict:
         # Signal the API that we stopped at clarification
         "final_response": None,
         "error": None,
+    }
+
+
+async def research_node(state: AgentState) -> dict:
+    """
+    Executes live internet research in parallel with static retrieval.
+    """
+    from backend.research.research_agent import ResearchAgent
+    
+    query = state.get("query", "")
+    logger.info(f"[ResearchNode] Starting live research for query: {query}")
+    
+    agent = ResearchAgent()
+    # Can use strict_rct if required by intent, but default to False
+    research_context = await agent.run_research(query, strict_rct=False)
+    
+    return {
+        "live_research_context": research_context,
+        "workflow_path": [NODE_RESEARCH],
     }
 
 
@@ -301,6 +321,7 @@ def build_graph() -> StateGraph:
     # Existing nodes (preserved)
     graph.add_node(NODE_QUERY,      instrument_agent(NODE_QUERY)(query_agent))
     graph.add_node(NODE_RETRIEVE,   instrument_agent(NODE_RETRIEVE)(retrieval_agent))
+    graph.add_node(NODE_RESEARCH,   instrument_agent(NODE_RESEARCH)(research_node))
     graph.add_node(NODE_REASON,     instrument_agent(NODE_REASON)(reasoning_agent))
     graph.add_node(NODE_VALIDATE,   instrument_agent(NODE_VALIDATE)(validation_agent))
     graph.add_node(NODE_REFLECT,    instrument_agent(NODE_REFLECT)(reflection_agent))
@@ -317,6 +338,7 @@ def build_graph() -> StateGraph:
             "clarify":             NODE_CLARIFY,
             "query_understand":    NODE_QUERY,
             "retrieve":            NODE_RETRIEVE,
+            "research":            NODE_RESEARCH,
             "evidence_eval":       NODE_EVID_EVAL,
             "contradiction_check": NODE_CONTRADICT,
             "reason":              NODE_REASON,
@@ -334,6 +356,7 @@ def build_graph() -> StateGraph:
     # ── Spoke nodes: Route back to the HUB (NODE_PLAN) after execution ────────
     graph.add_edge(NODE_QUERY,      NODE_PLAN)
     graph.add_edge(NODE_RETRIEVE,   NODE_PLAN)
+    graph.add_edge(NODE_RESEARCH,   NODE_PLAN)
     graph.add_edge(NODE_EVID_EVAL,  NODE_PLAN)
     graph.add_edge(NODE_CONTRADICT, NODE_PLAN)
     graph.add_edge(NODE_REASON,     NODE_PLAN)
