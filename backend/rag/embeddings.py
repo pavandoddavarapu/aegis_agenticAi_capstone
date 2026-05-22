@@ -1,68 +1,63 @@
 """
 embeddings.py — Modular text embedding engine for the RAG pipeline.
 
-Initial model: sentence-transformers/all-MiniLM-L6-v2
-  - Fast, free, lightweight
-  - 384-dimensional dense vectors
-  - Excellent for semantic similarity on medical text
-
-Design: Keep fully modular — swap model in one place later.
-Future models:
-  - pritamdeka/S-PubMedBert-MS-MARCO (domain-specific medical)
-  - OpenAI text-embedding-3-small (via API)
-  - Cohere embed-v3-medical
+Model: OpenAI text-embedding-3-small (via API)
+  - Blazing fast API, zero local GPU requirements.
+  - Dimensions truncated to 384 to maintain compatibility with existing Qdrant schemas.
 """
 from typing import List
-from sentence_transformers import SentenceTransformer
+from functools import lru_cache
+import os
+
+from openai import OpenAI
 from backend.utils.logger import logger
 
 # ─── Model Configuration ───────────────────────────────────────────────────────
-EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL_NAME = "text-embedding-3-small"
 EMBEDDING_DIMENSION = 384
 
 # ─── Singleton model loader ────────────────────────────────────────────────────
-_model: SentenceTransformer = None
+_client: OpenAI = None
 
-
-def _get_model() -> SentenceTransformer:
-    """Lazy-load the embedding model as a singleton to avoid repeated init."""
-    global _model
-    if _model is None:
-        logger.info(f"[Embeddings] Loading model: {EMBEDDING_MODEL_NAME}")
-        _model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-        logger.info(f"[Embeddings] Model loaded. Dimension: {EMBEDDING_DIMENSION}")
-    return _model
-
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        logger.info("[Embeddings] Initializing OpenAI Client for embeddings")
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key or api_key == "your_key":
+            logger.warning("[Embeddings] OPENAI_API_KEY is missing or invalid in .env! This will fail.")
+        _client = OpenAI(api_key=api_key)
+    return _client
 
 def embed_texts(texts: List[str]) -> List[List[float]]:
     """
-    Generate dense vector embeddings for a list of text strings.
-
-    Args:
-        texts: List of text strings to embed (e.g. chunk texts).
-
-    Returns:
-        List of float vectors, one per input text.
+    Generate dense vector embeddings for a list of text strings using OpenAI.
     """
     if not texts:
         return []
 
-    model = _get_model()
-    logger.info(f"[Embeddings] Embedding {len(texts)} text(s)...")
-    vectors = model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
-    logger.info(f"[Embeddings] Done. Shape: {vectors.shape}")
-    return vectors.tolist()
+    client = _get_client()
+    logger.info(f"[Embeddings] Calling OpenAI API to embed {len(texts)} text(s)...")
+    
+    try:
+        response = client.embeddings.create(
+            input=texts,
+            model=EMBEDDING_MODEL_NAME,
+            dimensions=EMBEDDING_DIMENSION
+        )
+        # Sort results by index just in case OpenAI returns out of order
+        sorted_data = sorted(response.data, key=lambda x: x.index)
+        vectors = [item.embedding for item in sorted_data]
+        logger.info(f"[Embeddings] Done. Extracted {len(vectors)} vectors.")
+        return vectors
+    except Exception as e:
+        logger.error(f"[Embeddings] OpenAI API Error: {e}")
+        return []
 
-
-def embed_query(query: str) -> List[float]:
-    """
-    Embed a single query string for similarity search.
-
-    Args:
-        query: The user's natural language medical query.
-
-    Returns:
-        A single float vector (384 dimensions).
-    """
+@lru_cache(maxsize=512)
+def embed_query(query: str) -> tuple:
     result = embed_texts([query])
-    return result[0] if result else []
+    return tuple(result[0]) if result else ()
+
+def embed_query_list(query: str) -> List[float]:
+    return list(embed_query(query))

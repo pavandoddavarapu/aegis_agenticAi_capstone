@@ -1,14 +1,56 @@
+# ── Core ──────────────────────────────────────────────────────────────────────
 fastapi
-uvicorn
+uvicorn[standard]
+python-dotenv
+
+# ── Phase 2: RAG Pipeline ─────────────────────────────────────────────────────
 langchain
-langgraph
+langchain-community
 qdrant-client
 sentence-transformers
 pypdf
-python-dotenv
-openai
-redis
-psycopg2-binary
 tiktoken
 httpx
 python-multipart
+
+# ── Phase 3: Agentic Workflow ─────────────────────────────────────────────────
+langgraph
+openai                # reasoning_agent + query_agent LLM calls
+
+# ── Phase 4: Advanced RAG ─────────────────────────────────────────────────────
+rank-bm25             # sparse BM25 retrieval
+# cross-encoder reranker uses sentence-transformers (already installed)
+
+# ── Infrastructure ────────────────────────────────────────────────────────────
+redis
+psycopg2-binary
+
+# ── Phase 5: Observability + Evaluation ──────────────────────────────────────
+asyncpg               # async PostgreSQL (telemetry storage bulk inserts)
+# redis[asyncio] uses redis package already installed above (aioredis compatible)
+
+# ── Phase 6: GraphRAG + Neo4j ─────────────────────────────────────────────────
+neo4j                 # async Neo4j driver for knowledge graph operations
+
+# ── Phase 7: Live Research Intelligence ──────────────────────────────────────
+# httpx already installed (PubMed E-utilities calls)
+# xml.etree.ElementTree is stdlib — no install needed
+
+# ── Phase 8: Multimodal Clinical Intelligence ─────────────────────────────────
+paddleocr             # Primary OCR engine (medical documents, handwriting)
+paddlepaddle          # PaddleOCR backend
+pytesseract           # Secondary OCR fallback (Tesseract wrapper)
+Pillow                # Image loading and preprocessing (PNG/JPG/JPEG)
+numpy                 # Image array conversion for PaddleOCR
+# GPT-4o Vision via httpx — already installed
+# python-multipart — already installed (file upload support)
+
+# ── Phase 11: Production Hardening ────────────────────────────────────────────
+python-jose[cryptography] # JWT Authentication
+passlib[bcrypt]           # Password Hashing
+bcrypt<4.0.0              # Pin required by passlib known bug
+slowapi                   # Rate Limiting
+celery                    # Async Background Tasks
+sentry-sdk[fastapi]       # Error Monitoring
+tenacity                  # Retry Handling
+email-validator           # Pydantic Email Validation

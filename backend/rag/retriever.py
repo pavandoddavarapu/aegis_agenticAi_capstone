@@ -11,11 +11,12 @@ These power validation agents, reflection loops,
 and adaptive routing — later.
 """
 from typing import List
-from backend.rag.embeddings import embed_query
+from backend.rag.embeddings import embed_query_list
 from backend.rag.qdrant_store import search
 from backend.rag.schemas import RetrievalResult, RetrievalResponse
 from backend.rag.utils import confidence_label
 from backend.utils.logger import logger
+
 
 
 def retrieve_evidence(query: str, top_k: int = 5) -> RetrievalResponse:
@@ -37,8 +38,8 @@ def retrieve_evidence(query: str, top_k: int = 5) -> RetrievalResponse:
     """
     logger.info(f"[Retriever] Query: '{query}' | top_k={top_k}")
 
-    # Step 1: Embed the query
-    query_vector = embed_query(query)
+    # Step 1: Embed the query (LRU-cached — same query string never re-encoded)
+    query_vector = embed_query_list(query)
     if not query_vector:
         logger.error("[Retriever] Failed to embed query.")
         return RetrievalResponse(

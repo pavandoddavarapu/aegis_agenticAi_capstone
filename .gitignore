@@ -55,6 +55,8 @@ cover/
 env/
 venv/
 ENV/
+.env.production
+.next/
 env.bak/
 venv.bak/
 

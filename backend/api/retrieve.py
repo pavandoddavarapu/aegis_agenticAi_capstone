@@ -21,7 +21,7 @@ router = APIRouter(prefix="/retrieve", tags=["retrieve"])
 
 
 class RetrievalRequest(BaseModel):
-    query: str = Field(..., min_length=3, description="Natural language medical query")
+    query: str = Field(..., min_length=1, description="Natural language medical query")
     top_k: int = Field(default=5, ge=1, le=20, description="Number of evidence chunks to return")
 
 

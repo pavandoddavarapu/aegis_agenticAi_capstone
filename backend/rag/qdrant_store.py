@@ -15,6 +15,7 @@ Payload structure per point:
   }
 """
 import uuid
+import os
 from typing import List, Dict, Any
 
 from qdrant_client import QdrantClient
@@ -32,7 +33,7 @@ from backend.rag.embeddings import EMBEDDING_DIMENSION
 from backend.utils.logger import logger
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-QDRANT_URL = "http://127.0.0.1:6333"
+QDRANT_URL = os.getenv("QDRANT_URL", "http://127.0.0.1:6333")
 COLLECTION_NAME = "medical_docs"
 
 # ─── Qdrant Client Singleton ───────────────────────────────────────────────────
@@ -44,7 +45,8 @@ def _get_client() -> QdrantClient:
     global _client
     if _client is None:
         logger.info(f"[Qdrant Store] Connecting to Qdrant at {QDRANT_URL}")
-        _client = QdrantClient(url=QDRANT_URL, timeout=60)
+        api_key = os.getenv("QDRANT_API_KEY")
+        _client = QdrantClient(url=QDRANT_URL, api_key=api_key, timeout=60)
     return _client
 
 
@@ -99,8 +101,9 @@ def store_chunks(chunks: List[Chunk], vectors: List[List[float]]) -> int:
             "chunk_index":   chunk.chunk_index,
             "total_chunks":  chunk.total_chunks,
         }
+        point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{chunk.source}_{chunk.chunk_index}"))
         points.append(PointStruct(
-            id=str(uuid.uuid4()),
+            id=point_id,
             vector=vector,
             payload=payload,
         ))

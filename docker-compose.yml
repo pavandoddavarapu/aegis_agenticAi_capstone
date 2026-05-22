@@ -20,3 +20,11 @@ services:
       POSTGRES_DB: aegis_db
     ports:
       - "5432:5432"
+
+  neo4j:
+    image: neo4j:5.26
+    environment:
+      NEO4J_AUTH: neo4j/password
+    ports:
+      - "7687:7687"
+      - "7474:7474"

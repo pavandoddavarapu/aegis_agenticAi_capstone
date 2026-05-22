@@ -1,0 +1,51 @@
+"use client";
+
+import { mockWorkflowData } from "@/lib/mock-data";
+import { ArrowRight, RefreshCw, AlertTriangle } from "lucide-react";
+
+export default function ReflectionVisualization() {
+  const { reflection } = mockWorkflowData;
+
+  return (
+    <div className="bg-card rounded-lg border border-border p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <RefreshCw className="w-4 h-4 text-amber-500" />
+        <h3 className="font-semibold text-sm">Adaptive Reflection</h3>
+      </div>
+
+      <div className="bg-secondary/40 rounded-lg p-4 mb-4 border border-border/50">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle className="w-4 h-4 text-orange-400" />
+          <span className="text-xs font-semibold text-orange-400 uppercase tracking-wider">Trigger Reason</span>
+        </div>
+        <p className="text-sm text-foreground/80">{reflection.trigger_reason}</p>
+      </div>
+
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
+        <div className="bg-secondary/40 border border-border/50 p-4 rounded-lg flex flex-col items-center justify-center text-center">
+          <span className="text-xs text-muted-foreground mb-1 uppercase font-semibold tracking-wider">Before</span>
+          <span className="text-2xl font-bold text-orange-400">{reflection.confidence_before}</span>
+        </div>
+        
+        <div className="flex flex-col items-center text-muted-foreground">
+          <span className="text-[10px] font-mono bg-secondary px-2 py-1 rounded mb-2">Retry {reflection.retry_count}</span>
+          <ArrowRight className="w-5 h-5 text-primary animate-pulse" />
+        </div>
+
+        <div className="bg-secondary/40 border border-border/50 p-4 rounded-lg flex flex-col items-center justify-center text-center">
+          <span className="text-xs text-muted-foreground mb-1 uppercase font-semibold tracking-wider">After</span>
+          <span className="text-2xl font-bold text-green-500">{reflection.confidence_after}</span>
+        </div>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-border/50">
+        <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider block mb-1">
+          Expanded Query Used
+        </span>
+        <code className="text-xs text-primary/80 block break-words bg-primary/5 p-2 rounded">
+          {reflection.expanded_query}
+        </code>
+      </div>
+    </div>
+  );
+}
