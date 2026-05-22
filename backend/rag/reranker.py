@@ -47,16 +47,9 @@ _reranker = None
 
 def _get_reranker():
     global _reranker
-    if _reranker is None:
-        try:
-            from sentence_transformers import CrossEncoder
-            logger.info(f"[Reranker] Loading model: {RERANKER_MODEL}")
-            _reranker = CrossEncoder(RERANKER_MODEL, max_length=512)
-            logger.info("[Reranker] Model loaded.")
-        except Exception as exc:
-            logger.error(f"[Reranker] Failed to load model: {exc}")
-            _reranker = None
-    return _reranker
+    # Disabled on Render Free Tier to prevent silent OOM thread kills (PyTorch + model requires 400MB+ RAM)
+    # The system will gracefully fall back to BM25/Dense composite scores.
+    return None
 
 
 # ── Recency scoring ───────────────────────────────────────────────────────────

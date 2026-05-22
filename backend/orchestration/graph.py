@@ -355,8 +355,8 @@ def build_graph() -> StateGraph:
 
     # ── Spoke nodes: Route back to the HUB (NODE_PLAN) after execution ────────
     graph.add_edge(NODE_QUERY,      NODE_PLAN)
-    graph.add_edge(NODE_RETRIEVE,   NODE_EVID_EVAL)
-    graph.add_edge(NODE_RESEARCH,   NODE_EVID_EVAL)
+    graph.add_edge(NODE_RETRIEVE,   NODE_PLAN)
+    graph.add_edge(NODE_RESEARCH,   NODE_PLAN)
     graph.add_edge(NODE_EVID_EVAL,  NODE_PLAN)
     graph.add_edge(NODE_CONTRADICT, NODE_PLAN)
     graph.add_edge(NODE_REASON,     NODE_PLAN)
