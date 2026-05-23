@@ -1,57 +1,51 @@
 """
 embeddings.py — Modular text embedding engine for the RAG pipeline.
 
-Model: OpenAI text-embedding-3-small (via API)
-  - Blazing fast API, zero local GPU requirements.
-  - Dimensions truncated to 384 to maintain compatibility with existing Qdrant schemas.
+Model: all-MiniLM-L6-v2 (Local via SentenceTransformers)
+  - Replaces OpenAI to avoid 'insufficient_quota' billing errors.
+  - Generates 384-dimensional embeddings (matches existing Qdrant schemas).
 """
 from typing import List
 from functools import lru_cache
 import os
 
-from openai import OpenAI
+from sentence_transformers import SentenceTransformer
 from backend.utils.logger import logger
 
 # ─── Model Configuration ───────────────────────────────────────────────────────
-EMBEDDING_MODEL_NAME = "text-embedding-3-small"
+EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 EMBEDDING_DIMENSION = 384
 
 # ─── Singleton model loader ────────────────────────────────────────────────────
-_client: OpenAI = None
+_model: SentenceTransformer = None
 
-def _get_client() -> OpenAI:
-    global _client
-    if _client is None:
-        logger.info("[Embeddings] Initializing OpenAI Client for embeddings")
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key or api_key == "your_key":
-            logger.warning("[Embeddings] OPENAI_API_KEY is missing or invalid in .env! This will fail.")
-        _client = OpenAI(api_key=api_key)
-    return _client
+def _get_model() -> SentenceTransformer:
+    global _model
+    if _model is None:
+        logger.info(f"[Embeddings] Loading local model: {EMBEDDING_MODEL_NAME}")
+        # Automatically downloads and caches the model
+        _model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    return _model
 
 def embed_texts(texts: List[str]) -> List[List[float]]:
     """
-    Generate dense vector embeddings for a list of text strings using OpenAI.
+    Generate dense vector embeddings for a list of text strings locally.
     """
     if not texts:
         return []
 
-    client = _get_client()
-    logger.info(f"[Embeddings] Calling OpenAI API to embed {len(texts)} text(s)...")
+    model = _get_model()
+    logger.info(f"[Embeddings] Generating local embeddings for {len(texts)} text(s)...")
     
     try:
-        response = client.embeddings.create(
-            input=texts,
-            model=EMBEDDING_MODEL_NAME,
-            dimensions=EMBEDDING_DIMENSION
-        )
-        # Sort results by index just in case OpenAI returns out of order
-        sorted_data = sorted(response.data, key=lambda x: x.index)
-        vectors = [item.embedding for item in sorted_data]
-        logger.info(f"[Embeddings] Done. Extracted {len(vectors)} vectors.")
+        # Generate embeddings (returns numpy array)
+        embeddings = model.encode(texts, convert_to_numpy=True)
+        # Convert to list of python floats
+        vectors = embeddings.tolist()
+        logger.info(f"[Embeddings] Done. Extracted {len(vectors)} vectors locally.")
         return vectors
     except Exception as e:
-        logger.error(f"[Embeddings] OpenAI API Error: {e}")
+        logger.error(f"[Embeddings] Local Embedding Error: {e}")
         return []
 
 @lru_cache(maxsize=512)
