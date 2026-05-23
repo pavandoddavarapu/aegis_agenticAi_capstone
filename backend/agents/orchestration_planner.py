@@ -598,25 +598,16 @@ def orchestration_planner(state: AgentState) -> dict:
                 "workflow_path": ["plan"],
             }
 
-        logger.info("[OrchestrationPlanner] Subsequent planning run. Determining next agent via LLM.")
-        next_agent, reasoning = llm_orchestrate(state)
-        
-        # Guardrail: Never Clarify in a research workflow
+        logger.info("[OrchestrationPlanner] Subsequent planning run. Using deterministic sequential routing.")
+        next_agent = _determine_fallback_agent(state)
+        reasoning = f"Deterministic sequential routing selected: {next_agent}"
+
+        # Safety guardrails
         if selected_wf == "research" and next_agent == "clarify":
             next_agent = "query_understand"
             reasoning = "Overridden clarify choice for research workflow."
 
-        valid_agents = {"clarify", "query_understand", "retrieve", "research", "evidence_eval", "contradiction_check", "reason", "validate", "reflect", "finalize"}
-        if isinstance(next_agent, str) and next_agent not in valid_agents:
-            logger.warning(f"[OrchestrationPlanner] Invalid next_agent from LLM: '{next_agent}'. Using fallback.")
-            next_agent = _determine_fallback_agent(state)
-            reasoning = "Fallback due to invalid LLM output."
-        elif isinstance(next_agent, list):
-            next_agent = [a for a in next_agent if a in valid_agents]
-            if not next_agent:
-                next_agent = _determine_fallback_agent(state)
-        else:
-            logger.info(f"[OrchestrationPlanner] LLM decided next agent: '{next_agent}'. Reason: {reasoning}")
+        logger.info(f"[OrchestrationPlanner] Next agent: '{next_agent}'. Reason: {reasoning}")
         
         return {
             "next_agent": next_agent,
