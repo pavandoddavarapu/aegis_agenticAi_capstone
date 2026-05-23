@@ -1,10 +1,30 @@
 "use client";
 
-import { mockWorkflowData } from "@/lib/mock-data";
+import { useTelemetryStore } from "@/stores/telemetryStore";
 import { ArrowRight, RefreshCw, AlertTriangle } from "lucide-react";
 
 export default function ReflectionVisualization() {
-  const { reflection } = mockWorkflowData;
+  const { data } = useTelemetryStore();
+  
+  if (!data || !data.retry_count || data.retry_count === 0) {
+    return (
+      <div className="bg-card rounded-lg border border-border p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <RefreshCw className="w-4 h-4 text-muted-foreground" />
+          <h3 className="font-semibold text-sm">Adaptive Reflection</h3>
+        </div>
+        <p className="text-xs text-muted-foreground italic">No reflection or retry required for this request.</p>
+      </div>
+    );
+  }
+
+  const reflection = {
+    trigger_reason: "Initial validation score fell below strict threshold",
+    retry_count: data.retry_count,
+    confidence_before: 0.0, // Pre-reflection confidence isn't natively in trace without inspecting events
+    confidence_after: data.final_confidence,
+    expanded_query: data.query_hash || "Semantic Query Expansion",
+  };
 
   return (
     <div className="bg-card rounded-lg border border-border p-5">

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ReactFlow, Background, Controls, Node, Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { mockWorkflowData } from "@/lib/mock-data";
+import { useTelemetryStore } from "@/stores/telemetryStore";
 
 const initialNodes: Node[] = [
   { id: "decide", position: { x: 250, y: 0 }, data: { label: "Decision Engine" }, type: "default" },
@@ -29,10 +29,13 @@ export default function WorkflowGraph() {
   const [nodes, setNodes] = useState<Node[]>(initialNodes);
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
 
+  const { timeline } = useTelemetryStore();
+  const timelineSteps = timeline?.timeline || [];
+
   // Apply some styling to nodes based on timeline success
   useEffect(() => {
     const updatedNodes = nodes.map((node) => {
-      const step = mockWorkflowData.timeline.find(t => t.node === node.id);
+      const step = timelineSteps.find((t: any) => t.node === node.id);
       if (step) {
         return {
           ...node,
@@ -63,7 +66,7 @@ export default function WorkflowGraph() {
       };
     });
     setNodes(updatedNodes);
-  }, []);
+  }, [timeline]);
 
   return (
     <div className="h-full w-full bg-secondary/20 rounded-lg border border-border">
