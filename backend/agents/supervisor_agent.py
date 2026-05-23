@@ -209,7 +209,7 @@ def finalize_response(state: AgentState) -> dict:
         }
 
     reasoning     = state.get("reasoning_output", "No reasoning generated.")
-    score         = state.get("validation_score", 0.0)
+    score         = float(state.get("validation_score") or 0.0)
     retry_count   = state.get("retry_count", 0)
     workflow_type = state.get("selected_workflow", "clinical")
     risk_level    = state.get("risk_level", "low")

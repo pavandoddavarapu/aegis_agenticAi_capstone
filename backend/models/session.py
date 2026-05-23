@@ -275,7 +275,7 @@ class ConversationalPatientSession(BaseModel):
         # Build analysis snapshot
         ev_summary = agent_state.get("evidence_quality_summary") or {}
         contradiction = agent_state.get("contradiction_report") or {}
-        score = agent_state.get("validation_score", 0.0)
+        score = float(agent_state.get("validation_score") or 0.0)
 
         self.last_analysis = AnalysisSnapshot(
             clinical_intent      = agent_state.get("clinical_intent", "unknown"),
