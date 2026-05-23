@@ -3,7 +3,7 @@ FROM python:3.11-slim
 # Switch to root to install apt packages
 USER root
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     tesseract-ocr \
     git \
