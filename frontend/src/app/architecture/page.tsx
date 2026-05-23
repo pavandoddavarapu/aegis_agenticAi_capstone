@@ -51,7 +51,8 @@ export default function ArchitectureDashboard() {
           <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
             {[
               { id: 'orchestration', icon: Workflow, label: 'Agentic Orchestration' },
-              { id: 'retrieval', icon: Search, label: 'Parallel Retrieval' },
+              { id: 'agents', icon: BrainCircuit, label: 'The Agents' },
+              { id: 'retrieval', icon: Search, label: 'Hybrid RAG Retrieval' },
               { id: 'multimodal', icon: Eye, label: 'Multimodal Processing' },
               { id: 'usecases', icon: Stethoscope, label: 'Clinical Use Cases' },
             ].map(tab => (
@@ -135,12 +136,51 @@ export default function ArchitectureDashboard() {
           </div>
         )}
 
+        {/* ─── TAB 1.5: THE AGENTS ────────────────────────────────────────── */}
+        {activeTab === 'agents' && (
+          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="text-center max-w-3xl mx-auto mb-12">
+              <h2 className="text-3xl font-bold mb-4">The Autonomous Agents</h2>
+              <p className="text-slate-400 leading-relaxed">
+                Aegis is powered by a swarm of specialized LangGraph agents. Each agent has a distinct system prompt, dedicated memory, and a specific clinical responsibility in the pipeline.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <ArchitectureCard 
+                icon={BrainCircuit} title="1. Query Understanding Agent" tags={['Llama-3-70b', 'Classifier']}
+                description="Intercepts the raw user input, infers missing clinical context, classifies the intent (e.g. diagnostic vs medication), and spawns multi-hop query variants for the vector DB."
+              />
+              <ArchitectureCard 
+                icon={Network} title="2. Orchestration Planner" tags={['Routing', 'Risk Engine']}
+                description="The master supervisor. It analyzes the risk level (Low to Critical) and dynamically constructs a 'Decision Plan' determining which retrieval engines to activate and how strict validation should be."
+              />
+              <ArchitectureCard 
+                icon={Search} title="3. Retrieval Agent" tags={['Parallel Execution', 'Tool Calling']}
+                description="Executes the Decision Plan by firing off asynchronous tool calls to Qdrant, Neo4j, and PubMed concurrently. It gathers all evidence into a centralized context pool."
+              />
+              <ArchitectureCard 
+                icon={ShieldCheck} title="4. Evidence Evaluator" tags={['Critique', 'Zero-Shot']}
+                description="Reads the retrieved chunks and scores them for 'Sufficiency' and 'Contradiction'. If the evidence is weak, it triggers the Reflection Agent instead of passing bad data forward."
+              />
+              <ArchitectureCard 
+                icon={Activity} title="5. Reflection Agent" tags={['Self-Healing', 'HyDE']}
+                description="Activated when validation fails. It analyzes why the evidence was insufficient, rewrites the search query using HyDE (Hypothetical Document Embeddings), and forces a broader search."
+              />
+              <ArchitectureCard 
+                icon={FileText} title="6. Clinical Reasoning Agent" tags={['Synthesis', 'Generation']}
+                description="The final synthesizer. It takes the validated, high-quality evidence blocks and generates the final medical report, strictly citing the source and trust scores for every claim it makes."
+              />
+            </div>
+          </div>
+        )}
+
         {/* ─── TAB 2: RETRIEVAL ────────────────────────────────────────────── */}
         {activeTab === 'retrieval' && (
           <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
             
             <div className="text-center max-w-3xl mx-auto mb-12">
-              <h2 className="text-3xl font-bold mb-4">Triple-Engine Parallel Retrieval</h2>
+              <h2 className="text-3xl font-bold mb-4">Hybrid RAG Retrieval Architecture</h2>
               <p className="text-slate-400 leading-relaxed">
                 Aegis doesn't rely on a single vector search. It executes highly concurrent searches across three distinct architectural paradigms, fusing the results using Reciprocal Rank Fusion (RRF).
               </p>
@@ -151,19 +191,19 @@ export default function ArchitectureDashboard() {
                 icon={Database} 
                 title="Dense + Sparse (Qdrant)" 
                 tags={['Semantic', 'BM25', 'Fast']}
-                description="Encodes clinical queries using BGE-Large-En-v1.5 and performs vector cosine similarity alongside BM25 sparse keyword matching for exact medical terminologies."
+                description="Use Case: Broad symptom matching and finding similar past patient cases. Encodes clinical queries using BGE-Large-En-v1.5 and performs vector cosine similarity alongside BM25 sparse keyword matching."
               />
               <ArchitectureCard 
                 icon={Network} 
                 title="GraphRAG (Neo4j)" 
                 tags={['Ontology', 'Cypher', 'Relationships']}
-                description="Traverses a heavily connected graph of clinical trials, drugs, and diseases. Excellent for multi-hop queries like 'What drugs interact with X that treat Y?'"
+                description="Use Case: Complex multi-hop queries like 'What drugs interact with X that treat Y?'. Traverses a heavily connected graph of clinical trials, contraindications, and diseases to find non-obvious relationships."
               />
               <ArchitectureCard 
                 icon={Search} 
                 title="Live Research (PubMed)" 
                 tags={['Real-time', 'Systematic', 'APIs']}
-                description="Dynamically queries the National Library of Medicine (PubMed) APIs to pull in the absolute latest systematic reviews for edge-case diseases."
+                description="Use Case: Rare diseases or novel treatments (e.g. Long-COVID). Dynamically queries the National Library of Medicine APIs to pull in the absolute latest systematic reviews that aren't in the static vector DB."
               />
             </div>
 
