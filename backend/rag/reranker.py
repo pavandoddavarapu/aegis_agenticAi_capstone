@@ -16,8 +16,12 @@ Model: cross-encoder/ms-marco-MiniLM-L-6-v2
 Upgrade path: BAAI/bge-reranker-large for higher accuracy at higher cost.
 """
 import math
+import os
 from typing import List, Dict
 from backend.utils.logger import logger
+
+# Force HF_ENDPOINT locally just in case huggingface_hub was already imported
+os.environ["HF_ENDPOINT"] = "https://huggingface.co"
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 RERANKER_MODEL  = "cross-encoder/ms-marco-MiniLM-L-6-v2"
@@ -103,14 +107,10 @@ def rerank(query: str, candidates: List[Dict]) -> List[Dict]:
     model = _get_reranker()
 
     # ── Cross-encoder scoring ─────────────────────────────────────────────────
-    if model is not None:
-        pairs       = [(query, c.get("text", "")[:512]) for c in candidates]
-        raw_scores  = model.predict(pairs, batch_size=RERANKER_BATCH).tolist()
-        logger.info(f"[Reranker] Cross-encoder scored {len(candidates)} candidates.")
-    else:
-        # Graceful fallback: use existing retrieval score
-        logger.warning("[Reranker] Model unavailable — using retrieval score fallback.")
-        raw_scores = [c.get("score", 0.5) for c in candidates]
+    # Bypassed to prevent slow CPU inference and huggingface_hub timeout loops
+    logger.info("[Reranker] Bypassing CrossEncoder model — using retrieval score fallback for speed.")
+    raw_scores = [c.get("score", 0.5) for c in candidates]
+    model = None
 
     # ── Composite scoring ─────────────────────────────────────────────────────
     for chunk, ce_score in zip(candidates, raw_scores):

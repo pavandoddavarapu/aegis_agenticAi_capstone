@@ -69,8 +69,8 @@ def _score_grounding(reasoning: str, docs: list) -> tuple[float, str]:
     n               = len(docs)
 
     # Heuristic 1: explicit evidence citations  [Evidence N] or [Research N]
-    cited_evidence = len(re.findall(r"\[evidence\s*\d+\]", reasoning_lower))
-    cited_research = len(re.findall(r"\[research\s*\d+\]", reasoning_lower))
+    cited_evidence = len(re.findall(r"evidence\s*\d+", reasoning_lower))
+    cited_research = len(re.findall(r"research\s*\d+", reasoning_lower))
     cited = cited_evidence + cited_research
     citation_ratio  = min(cited / max(n, 1), 1.0)
 

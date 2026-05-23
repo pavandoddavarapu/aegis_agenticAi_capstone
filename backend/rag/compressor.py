@@ -104,96 +104,24 @@ def _trim_to_tokens(text: str, max_tokens: int) -> str:
 
 def compress_context(query: str, chunks: List[Dict]) -> str:
     """
-    Full compression pipeline — all embeddings in ONE batched call:
-      1. Embed query + all sentences across all chunks together.
-      2. Deduplicate near-identical chunks.
-      3. Sentence-level relevance filtering per chunk.
-      4. Token budget allocation proportional to rerank_score.
-      5. Build final numbered evidence block.
-
-    Args:
-        query:  The medical query.
-        chunks: Reranked chunk dicts (should have 'rerank_score').
-
-    Returns:
-        A formatted, compressed context string ready for the LLM prompt.
+    Fast bypass for compressor: Llama-3-70b has 128k context window, 
+    so we don't need sentence-level compression anymore. 
+    This saves massive CPU time and prevents HF download errors.
     """
     if not chunks:
         return "No evidence retrieved."
 
-    logger.info(f"[Compressor] Compressing {len(chunks)} chunks for query.")
-
-    # ── Step 1: Embed query (cached via lru_cache) ────────────────────────────
-    q_vec_list = embed_query_list(query)
-    q_vec = np.array(q_vec_list, dtype=np.float32)
-    q_norm = np.linalg.norm(q_vec)
-    if q_norm > 0:
-        q_vec = q_vec / q_norm
-
-    # ── Step 2: Deduplicate ───────────────────────────────────────────────────
-    chunks = deduplicate(chunks, q_vec_list)
-
-    # ── Step 3: Batch-embed ALL sentences across ALL chunks at once ───────────
-    # Collect sentences and their chunk ownership
-    chunk_sentence_map: List[List[str]] = []
-    all_sentences: List[str] = []
-    sent_offsets: List[int] = []   # starting index in all_sentences per chunk
-
-    for chunk in chunks:
-        sents = _split_sentences(chunk.get("text", ""))
-        sent_offsets.append(len(all_sentences))
-        chunk_sentence_map.append(sents)
-        all_sentences.extend(sents)
-
-    # Single embed call for everything
-    if all_sentences:
-        try:
-            all_vecs = np.array(embed_texts(all_sentences), dtype=np.float32)
-            # Pre-normalise
-            norms = np.linalg.norm(all_vecs, axis=1, keepdims=True)
-            norms[norms == 0] = 1.0
-            all_vecs = all_vecs / norms
-        except Exception as exc:
-            logger.warning(f"[Compressor] Batch sentence embed failed: {exc}; keeping full text.")
-            all_vecs = None
-    else:
-        all_vecs = None
-
-    # Assign compressed text per chunk
-    for ci, chunk in enumerate(chunks):
-        sents = chunk_sentence_map[ci]
-        if len(sents) <= 2 or all_vecs is None:
-            chunk["compressed_text"] = chunk.get("text", "")
-            continue
-
-        offset = sent_offsets[ci]
-        s_vecs = all_vecs[offset: offset + len(sents)]
-        sims   = _cosine_matrix(q_vec, s_vecs)
-        kept   = [s for s, sim in zip(sents, sims) if sim >= SENTENCE_RELEVANCE_THRESHOLD]
-        chunk["compressed_text"] = " ".join(kept) if kept else chunk.get("text", "")
-
-    # ── Step 4: Token budget allocation ──────────────────────────────────────
-    total_score = sum(c.get("rerank_score", 1.0) for c in chunks) or 1.0
-    remaining   = MAX_CONTEXT_TOKENS
+    logger.info(f"[Compressor] Bypassing compression for {len(chunks)} chunks (LLM has large context).")
+    
     evidence_blocks = []
-
     for i, chunk in enumerate(chunks, 1):
-        if remaining <= 0:
-            break
-        weight = chunk.get("rerank_score", 1.0) / total_score
-        budget = max(int(weight * MAX_CONTEXT_TOKENS), 80)
-        budget = min(budget, remaining)
-
-        text      = _trim_to_tokens(chunk["compressed_text"], budget)
-        used      = _count_tokens(text)
-        remaining -= used
-
         conf    = chunk.get("confidence", "medium")
         score   = chunk.get("rerank_score", chunk.get("score", 0))
         source  = chunk.get("source", "unknown")
         page    = chunk.get("page", 0)
         section = chunk.get("section") or "general"
-
+        text    = chunk.get("text", "").strip()
+        
         evidence_blocks.append(
             f"[Evidence {i}] "
             f"confidence={conf}, score={score:.3f}, "
@@ -201,10 +129,4 @@ def compress_context(query: str, chunks: List[Dict]) -> str:
             f"{text}"
         )
 
-    context = "\n\n".join(evidence_blocks)
-    total_used = MAX_CONTEXT_TOKENS - remaining
-    logger.info(
-        f"[Compressor] Output: {len(evidence_blocks)} blocks, "
-        f"~{total_used} tokens."
-    )
-    return context
+    return "\n\n".join(evidence_blocks)
