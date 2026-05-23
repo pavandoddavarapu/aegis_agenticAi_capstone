@@ -1,3 +1,12 @@
+---
+title: Aegis Backend
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
 # Aegis Clinical Intelligence System
 
 Aegis is an advanced Clinical AI platform designed for clinical intelligence, agentic workflows, medical retrieval-augmented generation (RAG), and clinical validation.
