@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect } from "react";
 import WorkflowGraph from "@/components/WorkflowGraph";
 import ExecutionTimeline from "@/components/ExecutionTimeline";
