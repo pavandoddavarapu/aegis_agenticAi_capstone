@@ -22,7 +22,7 @@ export default function ArchitectureDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-white font-sans">
+    <div className="h-screen overflow-y-auto bg-[#070b14] text-white font-sans">
       {/* HERO */}
       <div className="relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-slate-900 to-[#070b14] pt-20 pb-14">
         <div className="absolute inset-0 pointer-events-none">

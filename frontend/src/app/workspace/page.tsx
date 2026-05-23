@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { createSession } from "@/services/analysisService";
 import PatientContextSidebar from "@/components/workspace/PatientContextSidebar";
@@ -19,6 +19,8 @@ export default function WorkspacePage() {
     rightTab,
     setRightTab,
   } = useWorkspaceStore();
+
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
 
   // Initialize session on mount if not already initialized
   useEffect(() => {
@@ -77,6 +79,14 @@ export default function WorkspacePage() {
             🏛 Governance Review
           </a>
           <a
+            href="/architecture"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg px-3 py-1 transition-all"
+          >
+            🧩 Architecture
+          </a>
+          <a
             href="/dashboard"
             target="_blank"
             rel="noopener noreferrer"
@@ -84,6 +94,12 @@ export default function WorkspacePage() {
           >
             📊 Metrics Dashboard
           </a>
+          <button
+            onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
+            className="text-[10px] text-indigo-400 hover:text-indigo-300 border border-indigo-900/50 hover:border-indigo-700 rounded-lg px-3 py-1 transition-all ml-2 bg-indigo-950/20"
+          >
+            {isRightPanelOpen ? "▶ Hide Intelligence" : "◀ Show Intelligence"}
+          </button>
         </div>
       </header>
 
@@ -98,8 +114,9 @@ export default function WorkspacePage() {
         </div>
 
         {/* RIGHT PANEL: Intelligence Tabs (Plan, Evidence, Governance) */}
-        <div className="w-[340px] shrink-0 flex flex-col bg-slate-900/25 overflow-hidden">
-          {/* Tabs bar */}
+        {isRightPanelOpen && (
+          <div className="w-[340px] shrink-0 flex flex-col bg-slate-900/25 overflow-hidden border-l border-slate-800/60 animate-in slide-in-from-right-8 duration-300">
+            {/* Tabs bar */}
           <div className="flex border-b border-slate-850 shrink-0">
             {(["plan", "evidence", "governance"] as const).map((tab) => (
               <button
@@ -237,6 +254,7 @@ export default function WorkspacePage() {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );
