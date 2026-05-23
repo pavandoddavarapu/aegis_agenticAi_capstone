@@ -219,6 +219,7 @@ class DecisionPlan:
             "context_budget_tokens": self.context_budget_tokens,
             "internet_retrieval":   self.workflow.internet_retrieval,
             "case_retrieval":       self.workflow.case_retrieval,
+            "graph_retrieval":      self.workflow.graph_retrieval,
         }
 
 
