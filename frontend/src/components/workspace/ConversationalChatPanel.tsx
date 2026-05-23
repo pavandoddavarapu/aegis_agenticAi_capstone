@@ -202,7 +202,7 @@ const EvidenceSourceRow = React.memo(function EvidenceSourceRow({ ev, idx }: { e
 });
 
 const TraceViewer = React.memo(function TraceViewer({ msg }: { msg: ConversationMessage }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"orchestration" | "evidence" | "governance">("orchestration");
 
   const result = msg.metadata?.result as AnalysisResult | undefined;
