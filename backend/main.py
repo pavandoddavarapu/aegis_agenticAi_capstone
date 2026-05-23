@@ -20,6 +20,9 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+# Force HF_ENDPOINT to default, preventing internal docker containers from hitting hf-mirror.com
+os.environ["HF_ENDPOINT"] = "https://huggingface.co"
+
 import sentry_sdk
 from contextlib import asynccontextmanager
 
