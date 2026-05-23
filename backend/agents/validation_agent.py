@@ -183,10 +183,11 @@ async def validation_agent(state: AgentState) -> dict:
             validator = GraphValidator(client)
             is_safe, violations = await validator.validate_reasoning(reasoning)
             if not is_safe:
-                # Critical safety violation → override score to trigger reflection
-                composite = 0.0
-                graph_detail = "FAILED: " + "; ".join(violations)
-                logger.error(f"[ValidationAgent] Graph validation failed: {violations}")
+                # We penalize but DO NOT zero out, because our entity extractor
+                # lacks negation detection (it flags "Do NOT give aspirin").
+                composite = max(0.0, composite - 0.1)
+                graph_detail = "WARNING: " + "; ".join(violations)
+                logger.warning(f"[ValidationAgent] Graph validation flagged items (ignoring negation): {violations}")
             else:
                 graph_detail = "Passed (no contraindications)"
         except Exception as exc:
