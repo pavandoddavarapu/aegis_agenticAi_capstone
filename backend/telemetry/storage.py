@@ -131,6 +131,11 @@ class TelemetryStorage:
         self._pg_pool  = None
         self._redis    = None
         self._ready    = False
+        from collections import deque
+        self._memory_traces = deque(maxlen=100) # Store recent request IDs
+        self._memory_events = {} # Map request_id -> list of raw events
+        self._memory_workflows = {} # Map request_id -> workflow_trace dict
+        self._memory_retrievals = {} # Map request_id -> retrieval_trace dict
 
     async def initialize(self):
         """Create connection pools and ensure schema exists."""
@@ -194,8 +199,29 @@ class TelemetryStorage:
             ]
         if self._redis:
             tasks.append(self._update_redis_aggregates(events))
+            
+        # In-memory fallback
+        for ev in events:
+            rid = str(ev.request_id)
+            if rid not in self._memory_events:
+                self._memory_events[rid] = []
+                self._memory_traces.append(rid)
+            self._memory_events[rid].append(asdict(ev))
+            
+            if ev.event_type == "workflow_end":
+                self._memory_workflows[rid] = asdict(ev)
+            elif ev.event_type == "retrieval":
+                self._memory_retrievals[rid] = asdict(ev)
+                
+        # cleanup memory
+        while len(self._memory_traces) > 100:
+            old_rid = self._memory_traces.popleft()
+            self._memory_events.pop(old_rid, None)
+            self._memory_workflows.pop(old_rid, None)
+            self._memory_retrievals.pop(old_rid, None)
 
-        await asyncio.gather(*tasks, return_exceptions=True)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _insert_raw(self, events: list):
         if not events or not self._pg_pool:
@@ -314,12 +340,27 @@ class TelemetryStorage:
                         return dict(row)
             except Exception as exc:
                 logger.error(f"[TelemetryStorage] get_workflow_trace: {exc}")
+                
+        # In-memory fallback
+        if str(request_id) in self._memory_events:
+            return {"request_id": str(request_id), "events": self._memory_events[str(request_id)]}
+            
         return None
 
     async def get_recent_metrics(self, hours: int = 24) -> Dict:
         """Aggregate metrics for the monitoring dashboard."""
         if not self._pg_pool:
-            return {"error": "PostgreSQL unavailable"}
+            # Memory fallback
+            wfs = list(self._memory_workflows.values())
+            if not wfs: return {}
+            return {
+                "total_requests": len(wfs),
+                "avg_latency_ms": sum(w.get("total_ms", 0) or 0 for w in wfs) / len(wfs),
+                "avg_confidence": sum(w.get("final_confidence", 0) or 0 for w in wfs) / len(wfs),
+                "escalations": sum(1 for w in wfs if w.get("escalation_required")),
+                "errors": sum(1 for w in wfs if w.get("status") == "error"),
+                "avg_retries": sum(w.get("retry_count", 0) or 0 for w in wfs) / len(wfs)
+            }
         try:
             async with self._pg_pool.acquire() as conn:
                 stats = await conn.fetchrow("""
@@ -340,7 +381,16 @@ class TelemetryStorage:
 
     async def get_retrieval_stats(self, hours: int = 24) -> Dict:
         if not self._pg_pool:
-            return {}
+            rets = list(self._memory_retrievals.values())
+            if not rets: return {}
+            return {
+                "avg_retrieval_ms": sum(r.get("total_latency_ms", 0) or 0 for r in rets) / len(rets),
+                "avg_docs_returned": sum(r.get("final_docs", 0) or 0 for r in rets) / len(rets),
+                "avg_retrieval_score": sum(r.get("avg_score", 0) or 0 for r in rets) / len(rets),
+                "avg_trust": sum(r.get("avg_trust_score", 0) or 0 for r in rets) / len(rets),
+                "avg_source_diversity": sum(r.get("source_diversity", 0) or 0 for r in rets) / len(rets),
+                "failures": sum(1 for r in rets if not r.get("retrieval_success"))
+            }
         try:
             async with self._pg_pool.acquire() as conn:
                 stats = await conn.fetchrow("""
@@ -361,7 +411,31 @@ class TelemetryStorage:
 
     async def get_agent_latency_breakdown(self, hours: int = 24) -> List[Dict]:
         if not self._pg_pool:
-            return []
+            # Memory fallback
+            node_stats = {}
+            for evs in self._memory_events.values():
+                for ev in evs:
+                    if ev.get("event_type") == "node_end":
+                        node = ev.get("node", "unknown")
+                        if node not in node_stats:
+                            node_stats[node] = {"durations": [], "failures": 0}
+                        node_stats[node]["durations"].append(ev.get("duration_ms", 0))
+                        if not ev.get("success", True):
+                            node_stats[node]["failures"] += 1
+            res = []
+            for node, stats in node_stats.items():
+                durs = sorted(stats["durations"])
+                if not durs: continue
+                res.append({
+                    "node": node,
+                    "avg_ms": sum(durs) / len(durs),
+                    "p95_ms": durs[int(len(durs) * 0.95)],
+                    "count": len(durs),
+                    "failures": stats["failures"]
+                })
+            res.sort(key=lambda x: x["avg_ms"], reverse=True)
+            return res
+            
         try:
             async with self._pg_pool.acquire() as conn:
                 rows = await conn.fetch("""

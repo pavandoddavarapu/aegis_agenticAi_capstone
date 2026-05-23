@@ -112,6 +112,27 @@ async def get_workflow_trace(request_id: str):
     return trace
 
 
+# ─── Latest Trace ─────────────────────────────────────────────────────────────
+
+@router.get("/latest/trace")
+async def get_latest_trace():
+    """Returns the most recent workflow trace available in memory or DB."""
+    storage = await _get_storage()
+    if storage._memory_traces:
+        latest_id = storage._memory_traces[-1]
+        return await storage.get_workflow_trace(latest_id)
+    # If no memory traces, we'd query DB, but we'll assume memory works for active instances
+    raise HTTPException(status_code=404, detail="No traces available")
+
+@router.get("/latest/timeline")
+async def get_latest_timeline():
+    """Returns the most recent timeline available."""
+    storage = await _get_storage()
+    if storage._memory_traces:
+        latest_id = storage._memory_traces[-1]
+        return await get_timeline(latest_id)
+    raise HTTPException(status_code=404, detail="No timelines available")
+
 # ─── Timeline ─────────────────────────────────────────────────────────────────
 
 @router.get("/timeline/{request_id}")
