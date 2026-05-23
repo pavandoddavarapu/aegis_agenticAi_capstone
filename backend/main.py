@@ -18,7 +18,7 @@ Phase 13 additions (Conversational Orchestration Copilot):
 """
 import os
 from dotenv import load_dotenv
-load_dotenv(override=True)
+load_dotenv()
 
 import sentry_sdk
 from contextlib import asynccontextmanager
