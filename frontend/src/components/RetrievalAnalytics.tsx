@@ -9,11 +9,14 @@ export default function RetrievalAnalytics() {
   // Extract retrieval event from trace
   const retrievalEvent = data?.events?.find((e: any) => e.event_type === "retrieval");
   
+  const totalCandidates = (retrievalEvent?.dense_candidates || 0) + (retrievalEvent?.sparse_candidates || 0);
+  const compressionRatio = totalCandidates > 0 ? ((retrievalEvent?.final_docs || 0) / totalCandidates) * 100 : 0;
+
   const retrieval = {
     dense_hits: retrievalEvent?.dense_candidates || 0,
     sparse_hits: retrievalEvent?.sparse_candidates || 0,
     reranker_lift: retrievalEvent ? parseFloat((retrievalEvent.top_score - retrievalEvent.avg_score).toFixed(2)) : 0,
-    compression_ratio: 0.65, // not directly tracked in telemetry currently
+    compression_ratio: parseFloat(compressionRatio.toFixed(1)),
     top_chunks: retrievalEvent?.final_docs ? Array(Math.min(3, retrievalEvent.final_docs)).fill({ text: "Retrieved Clinical Evidence", score: retrievalEvent.top_score }) : []
   };
 
@@ -33,7 +36,7 @@ export default function RetrievalAnalytics() {
         </div>
         <div className="bg-secondary/50 rounded p-3">
           <p className="text-xs text-muted-foreground mb-1">Compression Ratio</p>
-          <p className="text-xl font-bold">{retrieval.compression_ratio * 100}%</p>
+          <p className="text-xl font-bold">{retrieval.compression_ratio}%</p>
         </div>
       </div>
 

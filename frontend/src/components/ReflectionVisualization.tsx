@@ -18,11 +18,18 @@ export default function ReflectionVisualization() {
     );
   }
 
+  // Extract prior confidence from early validation events if available
+  const validationEvents = data?.events?.filter((e: any) => e.event_type === "node_end" && e.node === "validate") || [];
+  const priorConfidence = validationEvents.length > 1 ? parseFloat(validationEvents[0].confidence_score || 0).toFixed(2) : 0.0;
+  const triggerReason = validationEvents.length > 1 
+    ? `Initial validation score (${priorConfidence}) fell below strict safety threshold.` 
+    : "System detected missing critical evidence context.";
+
   const reflection = {
-    trigger_reason: "Initial validation score fell below strict threshold",
+    trigger_reason: triggerReason,
     retry_count: data.retry_count,
-    confidence_before: 0.0, // Pre-reflection confidence isn't natively in trace without inspecting events
-    confidence_after: data.final_confidence,
+    confidence_before: priorConfidence,
+    confidence_after: data.final_confidence ? data.final_confidence.toFixed(2) : "N/A",
     expanded_query: data.query_hash || "Semantic Query Expansion",
   };
 

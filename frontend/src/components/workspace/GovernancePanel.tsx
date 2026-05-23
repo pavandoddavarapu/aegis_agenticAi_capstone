@@ -62,11 +62,13 @@ function EscalationBanner({ result }: { result: AnalysisResult }) {
 
   if (!result.review_required && !result.escalation_required) return null;
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
   const handleQuickApprove = async () => {
     if (!result.review_id) return;
     setApproving(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/governance/reviews/${result.review_id}/action`, {
+      const res = await fetch(`${API_BASE}/governance/reviews/${result.review_id}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "approve", reviewed_by: "Admin", notes: "Quick approved via Workspace" })

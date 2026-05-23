@@ -16,8 +16,8 @@ export default function DashboardPage() {
   }, [startPolling, stopPolling]);
 
   const requestId = data?.request_id || timeline?.request_id || "Waiting for data...";
-  const escalation = false; // We can parse this from data if needed
-  const riskLevel = "monitoring";
+  const escalation = data?.escalation_required || false;
+  const riskLevel = data?.risk_level || "monitoring";
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto h-full flex flex-col">
@@ -28,10 +28,14 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-secondary/50 border border-border px-3 py-1.5 rounded-md flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${!data ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
+            <div className={`w-2 h-2 rounded-full ${escalation ? 'bg-destructive animate-pulse' : !data ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {data ? 'Live' : 'Waiting...'}
+              {escalation ? 'Escalated' : data ? 'Resolved' : 'Waiting...'}
             </span>
+          </div>
+          <div className="bg-secondary/50 border border-border px-3 py-1.5 rounded-md">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-2">Risk Level</span>
+            <span className={`text-xs font-bold uppercase ${riskLevel === 'critical' ? 'text-destructive' : riskLevel === 'high' ? 'text-orange-500' : 'text-primary'}`}>{riskLevel}</span>
           </div>
           {metrics && (
              <div className="bg-secondary/50 border border-border px-3 py-1.5 rounded-md flex items-center gap-2">
