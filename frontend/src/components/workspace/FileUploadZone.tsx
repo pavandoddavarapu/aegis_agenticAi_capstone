@@ -60,27 +60,37 @@ export function FileUploadZone() {
 
       addFile(uploadedFile);
 
-      // Simulate progressive upload + processing
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.random() * 25;
-        if (progress >= 100) {
-          clearInterval(interval);
-          updateFile(id, { status: "processing", progress: 100 });
-          setTimeout(() => {
-            updateFile(id, {
-              status: "ready",
-              extractedFindings: fileType === "ecg"
-                ? "Sinus rhythm detected. Rate 72 bpm. No ST changes visible. QTc within normal limits."
-                : fileType === "xray"
-                ? "Lung fields clear bilaterally. No consolidation or pleural effusion."
-                : `Document processed. ${Math.floor(file.size / 200)} text segments extracted.`,
-            });
-          }, 1500);
-        } else {
-          updateFile(id, { progress: Math.min(progress, 99) });
-        }
-      }, 200);
+      // Actual upload to backend
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+      fetch(`${API_BASE}/upload/`, {
+        method: "POST",
+        body: formData,
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err);
+          }
+          return res.json();
+        })
+        .then((data) => {
+          updateFile(id, {
+            status: "ready",
+            progress: 100,
+            extractedFindings: data.message || `Successfully extracted text from ${file.name}.`,
+          });
+        })
+        .catch((error) => {
+          console.error("Upload failed:", error);
+          updateFile(id, {
+            status: "error",
+            extractedFindings: "Upload failed. Please check the backend connection.",
+          });
+        });
     },
     [addFile, updateFile]
   );
