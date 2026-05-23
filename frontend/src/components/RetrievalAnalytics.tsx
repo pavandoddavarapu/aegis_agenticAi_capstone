@@ -4,10 +4,10 @@ import { useTelemetryStore } from "@/stores/telemetryStore";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 export default function RetrievalAnalytics() {
-  const { data } = useTelemetryStore();
+  const { data: telemetryData } = useTelemetryStore();
   
   // Extract retrieval event from trace
-  const retrievalEvent = data?.events?.find((e: any) => e.event_type === "retrieval");
+  const retrievalEvent = telemetryData?.events?.find((e: any) => e.event_type === "retrieval");
   
   const totalCandidates = (retrievalEvent?.dense_candidates || 0) + (retrievalEvent?.sparse_candidates || 0);
   const compressionRatio = totalCandidates > 0 ? ((retrievalEvent?.final_docs || 0) / totalCandidates) * 100 : 0;
