@@ -87,6 +87,7 @@ Guidelines for decision-making:
 - Once evaluated, check for contradictions using "contradiction_check".
 - Once contradictions are analyzed, invoke "reason" to generate a clinical reasoning output.
 - Once reasoning is generated, invoke "validate" to calculate a validation confidence score.
+- IMPORTANT: If validation_score is null/None or validation_feedback is empty, it means validation has NOT been run yet. You MUST run "validate" before "finalize".
 - If validation score passes the threshold (e.g. >= 0.70), choose "finalize" to complete the workflow.
 - If validation fails, choose "reflect" to broaden search and retry (unless max retries are reached, in which case choose "finalize").
 - If the user query is a simple greeting or general conversation, you can bypass the agent steps and go straight to "finalize" (or "reason" if you need to output the message first).
@@ -140,12 +141,16 @@ def _determine_fallback_agent(state: AgentState) -> str:
     elif last_node == "reason":
         return "validate"
     elif last_node == "validate":
-        # Check validation results
-        score = state.get("validation_score", 0.0)
+        # Check validation results — None means validate hasn't run yet
+        score = state.get("validation_score", None)
         threshold = state.get("confidence_threshold", 0.70)
         retry_count = state.get("retry_count", 0)
         max_retries = state.get("max_retries", 2)
-        
+
+        # If score is None (not yet validated), this branch shouldn't be triggered,
+        # but guard it anyway
+        if score is None:
+            return "validate"
         if score < threshold and retry_count < max_retries:
             return "reflect"
         return "finalize"
@@ -165,7 +170,8 @@ def llm_orchestrate(state: AgentState) -> tuple[str, str]:
     evidence_scores = state.get("evidence_scores", [])
     contradiction_report = state.get("contradiction_report")
     reasoning_output = state.get("reasoning_output", "")
-    validation_score = state.get("validation_score", 0.0)
+    validation_score = state.get("validation_score", None)
+    validation_score_display = f"{validation_score:.3f}" if validation_score is not None else "NOT YET RUN"
     validation_feedback = state.get("validation_feedback", "")
     retry_count = state.get("retry_count", 0)
     max_retries = state.get("max_retries", 2)
@@ -184,7 +190,7 @@ def llm_orchestrate(state: AgentState) -> tuple[str, str]:
 - Contradictions Analyzed: {"Yes" if contradiction_report else "No"}
 - Clinical Reasoning Output: {"Yes (preview below)" if reasoning_output else "No"}
   Preview: {reasoning_output[:200] + '...' if reasoning_output else 'None'}
-- Validation Score: {validation_score} (Threshold: {state.get('confidence_threshold', 0.70)})
+- Validation Score: {validation_score_display} (Threshold: {state.get('confidence_threshold', 0.70)}) — NOTE: 'NOT YET RUN' means you MUST run 'validate' before 'finalize'.
 - Validation Feedback: {validation_feedback if validation_feedback else 'None'}
 - Clarification Required: {clarification_required}
 - Clarification Questions: {clarification_questions}

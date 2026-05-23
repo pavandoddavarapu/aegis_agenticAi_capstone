@@ -459,7 +459,7 @@ def _initial_state(
         # ── Reasoning ────────────────────────────────────────────────────────
         "reasoning_output":        "",
         # ── Validation ───────────────────────────────────────────────────────
-        "validation_score":        0.0,
+        "validation_score":        None,   # None = not yet validated; float = scored
         "validation_feedback":     "",
         # ── Reflection ───────────────────────────────────────────────────────
         "retry_count":             0,

@@ -151,7 +151,7 @@ def _build_response(query: str, final_state: dict, elapsed_ms: int) -> AnalyzeRe
     reasoning         = final_state.get("reasoning_output", "")
     final_response    = final_state.get("final_response", "")
     docs              = final_state.get("retrieved_docs", [])
-    score             = final_state.get("validation_score", 0.0)
+    score             = final_state.get("validation_score") or 0.0  # None → 0.0
     validation_detail = final_state.get("validation_feedback", "")
     workflow_trace    = final_state.get("workflow_path", [])
     retry_count       = final_state.get("retry_count", 0)

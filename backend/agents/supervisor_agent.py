@@ -127,7 +127,7 @@ def supervisor_router(state: AgentState) -> str:
 
     All Phase 4.5 behavior is preserved exactly.
     """
-    score       = state.get("validation_score", 0.0)
+    score       = state.get("validation_score") or 0.0  # None (not yet run) → 0.0
     retry_count = state.get("retry_count", 0)
     error       = state.get("error")
 
