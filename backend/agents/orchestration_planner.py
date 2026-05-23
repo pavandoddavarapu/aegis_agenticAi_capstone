@@ -124,15 +124,8 @@ def _determine_fallback_agent(state: AgentState) -> str:
     last_node = completed[-1]
     
     if last_node == "query_understand":
-        return ["retrieve", "research"]
-    elif last_node in ["retrieve", "research"]:
-        # Since retrieve and research run in parallel, they both route back to plan.
-        # We only move to evidence_eval when BOTH are in the path. Or rather, just move to evidence_eval.
-        # Actually, in LangGraph, after parallel execution, the graph state merges and calls 'plan' again.
-        # But wait, 'path' will have both. So if both are in path, we proceed.
-        if "retrieve" in completed and "research" in completed:
-            return "evidence_eval"
-        return "evidence_eval" # Fallback if only one runs
+        return "retrieve"
+    elif last_node == "retrieve":
         return "evidence_eval"
     elif last_node == "evidence_eval":
         return "contradiction_check"
