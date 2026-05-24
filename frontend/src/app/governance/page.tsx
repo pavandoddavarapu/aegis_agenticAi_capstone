@@ -340,7 +340,7 @@ export default function GovernanceDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a] text-white font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 rounded-xl px-5 py-3 text-sm font-medium shadow-xl transition-all ${toast.ok ? "bg-emerald-600" : "bg-red-600"}`}>

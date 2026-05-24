@@ -40,7 +40,7 @@ export default function WorkspacePage() {
   }, [sessionId, setSessionId]);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-[#070b14] text-white overflow-hidden font-sans">
+    <div className="h-screen w-full flex flex-col bg-background text-foreground overflow-hidden font-sans">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-3 border-b border-slate-800/70 bg-slate-900/50 backdrop-blur-sm z-20 shrink-0">
         <div className="flex items-center gap-3">

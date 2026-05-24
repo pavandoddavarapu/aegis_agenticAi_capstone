@@ -22,7 +22,7 @@ export default function ArchitectureDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
 
   return (
-    <div className="h-screen overflow-y-auto bg-[#070b14] text-white font-sans">
+    <div className="h-screen overflow-y-auto bg-background text-foreground font-sans">
       {/* HERO */}
       <div className="relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-slate-900 to-[#070b14] pt-20 pb-14">
         <div className="absolute inset-0 pointer-events-none">
@@ -48,7 +48,7 @@ export default function ArchitectureDashboard() {
       </div>
 
       {/* NAV */}
-      <div className="sticky top-0 z-50 bg-[#070b14]/90 backdrop-blur-xl border-b border-white/5">
+      <div className="sticky top-0 z-50 bg-background/90 backdrop-blur-xl border-b border-border">
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex items-center gap-1 overflow-x-auto">
             {TABS.map(tab => (
