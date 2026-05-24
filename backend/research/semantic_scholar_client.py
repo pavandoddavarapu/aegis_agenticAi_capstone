@@ -6,16 +6,65 @@ Architecture:
 """
 from typing import Dict, Any
 import asyncio
+import httpx
 from backend.utils.logger import logger
 
 class SemanticScholarClient:
-    """Mock/Stub for Semantic Scholar integration."""
+    """Client for Semantic Scholar API."""
     
-    async def fetch_citation_metrics(self, doi: str) -> Dict[str, Any]:
-        """Fetch citation counts for a given DOI."""
-        # In production, uses https://api.semanticscholar.org/graph/v1/paper/
-        await asyncio.sleep(0.1)
-        return {
-            "citationCount": 42,
-            "influentialCitationCount": 12
+    BASE_URL = "https://api.semanticscholar.org/graph/v1/paper"
+    
+    def __init__(self):
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json"
         }
+        self._client = httpx.AsyncClient(headers=headers, timeout=5.0)
+        self._semaphore = asyncio.Semaphore(1) # serialize requests to avoid hitting rate limits too quickly
+
+    async def close(self):
+        await self._client.aclose()
+        
+    async def fetch_citation_metrics(self, pmid: str) -> Dict[str, Any]:
+        """
+        Fetch citation counts and TLDR for a given PubMed ID.
+        """
+        if not pmid or pmid.startswith("NCT_"): # Skip non-pubmed ids
+            return {"citationCount": 0, "influentialCitationCount": 0}
+            
+        url = f"{self.BASE_URL}/PMID:{pmid}"
+        params = {
+            "fields": "citationCount,influentialCitationCount,tldr"
+        }
+        
+        for attempt in range(3):
+            async with self._semaphore:
+                try:
+                    # Polite sleep to keep rate limits clean
+                    await asyncio.sleep(0.2)
+                    response = await self._client.get(url, params=params)
+                    
+                    if response.status_code == 429:
+                        delay = (2 ** attempt) + 1
+                        logger.warning(f"[SemanticScholarClient] Rate limited for PMID {pmid}. Retrying in {delay}s...")
+                        await asyncio.sleep(delay)
+                        continue
+                        
+                    if response.status_code == 404:
+                        return {"citationCount": 0, "influentialCitationCount": 0}
+                        
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    return {
+                        "citationCount": data.get("citationCount", 0),
+                        "influentialCitationCount": data.get("influentialCitationCount", 0),
+                        "tldr": data.get("tldr", {}).get("text", "") if data.get("tldr") else ""
+                    }
+                except Exception as e:
+                    logger.debug(f"[SemanticScholarClient] Attempt {attempt+1} failed for PMID {pmid}: {e}")
+                    if attempt == 2:
+                        return {"citationCount": 0, "influentialCitationCount": 0}
+                    await asyncio.sleep(1)
+        return {"citationCount": 0, "influentialCitationCount": 0}
+

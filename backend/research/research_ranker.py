@@ -50,6 +50,19 @@ class ResearchRanker:
         else:
             composite = (evidence_score * 0.7) + (freshness * 0.3)
             
+        # 4. Citation Impact Boost (from Semantic Scholar)
+        citation_boost = 0.0
+        inf_citations = paper.get("influential_citation_count", 0)
+        citations = paper.get("citation_count", 0)
+        
+        if inf_citations > 0:
+            # 2% boost per influential citation, up to a max boost of 0.1
+            citation_boost = min(0.1, inf_citations * 0.02)
+        elif citations > 0:
+            # 0.1% boost per normal citation, up to a max boost of 0.05
+            citation_boost = min(0.05, citations * 0.001)
+            
+        composite += citation_boost
         return round(composite, 3)
         
     def rank_papers(self, query: str, papers: List[Dict[str, Any]], top_k: int = 5) -> List[Dict[str, Any]]:

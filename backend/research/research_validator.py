@@ -47,7 +47,10 @@ class ResearchValidator:
             
         # Reject if no abstract (useless for LLM reasoning)
         if len(abstract) < 50:
-            logger.warning("[ResearchValidator] Rejecting paper due to missing/short abstract.")
-            return False
+            if paper.get("source") == "ClinicalTrials.gov" and len(abstract) >= 20:
+                pass
+            else:
+                logger.warning(f"[ResearchValidator] Rejecting paper due to missing/short abstract ({len(abstract)} chars): '{title[:40]}'")
+                return False
             
         return True
