@@ -154,3 +154,105 @@
   background-size: 800px 100%;
   animation: shimmer 1.5s infinite;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   CHAT PANEL — Medical Light Theme Fixes
+   The ConversationalChatPanel uses many hardcoded dark slate
+   classes designed for dark mode. These overrides ensure the
+   chat interface stays legible on the white medical theme.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Chat input box — keep it light-gray with dark text */
+.chat-input-area {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+.chat-input-area textarea {
+  color: #0f172a !important;
+  background: transparent !important;
+}
+.chat-input-area textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Chat scroll area — clean white background */
+.chat-messages-area {
+  background-color: #ffffff !important;
+}
+
+/* User message bubbles — keep them distinct */
+.chat-user-bubble {
+  background-color: #0369a1 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+}
+.chat-user-bubble p,
+.chat-user-bubble span {
+  color: #ffffff !important;
+}
+
+/* AI message bubbles — light card style */
+.chat-ai-bubble {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* Input action panel gradient — use white instead of dark */
+.chat-input-panel {
+  background: linear-gradient(to top, #ffffff, rgba(255,255,255,0.95), transparent) !important;
+}
+
+/* Override the hardcoded dark background of the entire chat panel */
+.flex.flex-col.h-full.bg-slate-950\/20 {
+  background-color: #f8fafc !important;
+}
+
+/* Suggestion chips — make them readable */
+.chat-suggestion-chip {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+.chat-suggestion-chip:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* Streaming stage panel */
+.chat-streaming-panel {
+  background-color: #f0f9ff !important;
+  border-color: #bae6fd !important;
+}
+
+/* Override slate-950 backgrounds that appear as white-on-white */
+[class*="bg-slate-950"] {
+  background-color: #f8fafc !important;
+}
+[class*="bg-slate-900"] {
+  background-color: #f1f5f9 !important;
+}
+[class*="bg-slate-800"] {
+  background-color: #e2e8f0 !important;
+}
+
+/* Fix text-slate-200, text-slate-300 which now map to very dark colors — 
+   in the chat UI these are meant to be light/readable text on dark cards,
+   so we override them to medium dark slate for legibility on the new light backgrounds */
+.text-slate-200 {
+  color: #1e293b !important;
+}
+.text-slate-300 {
+  color: #334155 !important;
+}
+
+/* Make border-slate-800, border-slate-850 visible on light backgrounds */
+[class*="border-slate-8"] {
+  border-color: #cbd5e1 !important;
+}
+[class*="border-slate-7"] {
+  border-color: #94a3b8 !important;
+}
+[class*="border-slate-9"] {
+  border-color: #e2e8f0 !important;
+}

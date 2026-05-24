@@ -1091,9 +1091,12 @@ const MessageItem = React.memo(function MessageItem({ msg, onClarificationSubmit
           <div
             className={`px-4 py-3 rounded-2xl text-[12px] leading-relaxed shadow-sm ${
               isUser
-                ? "bg-blue-600/20 border border-blue-500/30 text-blue-100 rounded-tr-sm"
-                : "bg-slate-800/60 border border-slate-700/50 text-slate-200 rounded-tl-sm"
+                ? "rounded-tr-sm"
+                : "rounded-tl-sm"
             }`}
+            style={isUser
+              ? {backgroundColor: '#0369a1', color: '#ffffff', border: '1px solid #0284c7'}
+              : {backgroundColor: '#f0f4f8', color: '#0f172a', border: '1px solid #cbd5e1'}}
           >
             <div className="whitespace-pre-wrap">{msg.content}</div>
             {!!msg.metadata?.confidence && (
@@ -1474,7 +1477,7 @@ export default function ConversationalChatPanel() {
   // React component identities and eliminate per-keystroke flicker/remount.
 
   return (
-    <div className="flex flex-col h-full bg-slate-950/20 overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden" style={{backgroundColor: '#f8fafc'}}>
       {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 custom-scrollbar">
         {messages.length === 0 ? (
@@ -1482,7 +1485,7 @@ export default function ConversationalChatPanel() {
             <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-3xl shadow-xl shadow-blue-950/40 mb-6">
               🩺
             </div>
-            <h2 className="text-base font-bold text-white mb-2">Aegis Conversational Intelligence</h2>
+            <h2 className="text-base font-bold mb-2" style={{color: '#0f172a'}}>Aegis Conversational Intelligence</h2>
             <p className="text-slate-400 text-xs leading-relaxed max-w-md mb-8">
               Describe a new patient case, present symptoms and vitals, or upload clinical files (ECG, X-Ray, PDF reports). Aegis will orchestrate GraphRAG, dense semantic search, and governance checks to build a clinical intelligence report.
             </p>
@@ -1622,7 +1625,7 @@ export default function ConversationalChatPanel() {
       )}
 
       {/* Input Action Panel */}
-      <div className="px-6 pb-6 pt-2 shrink-0 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent">
+      <div className="px-6 pb-6 pt-2 shrink-0" style={{background: 'linear-gradient(to top, #ffffff, rgba(255,255,255,0.97), transparent)'}}>
         {error && (
           <div className="mb-2 bg-red-950/40 border border-red-900/40 text-red-300 text-[10px] px-3 py-2 rounded-lg flex items-center justify-between shrink-0">
             <span>⚠️ {error}</span>
@@ -1632,7 +1635,7 @@ export default function ConversationalChatPanel() {
           </div>
         )}
 
-        <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl px-4 py-3 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all flex items-end gap-3 shadow-lg">
+        <div className="rounded-2xl px-4 py-3 transition-all flex items-end gap-3 shadow-lg border" style={{backgroundColor: '#ffffff', borderColor: '#cbd5e1'}}>
           <textarea
             ref={textareaRef}
             rows={1}
@@ -1645,7 +1648,8 @@ export default function ConversationalChatPanel() {
                 : "Ask a follow-up question or update patient context..."
             }
             disabled={status === "analyzing"}
-            className="flex-1 bg-transparent text-[12px] text-white placeholder-slate-500 focus:outline-none resize-none custom-scrollbar max-h-32 py-1 leading-relaxed"
+            className="flex-1 bg-transparent text-[12px] focus:outline-none resize-none custom-scrollbar max-h-32 py-1 leading-relaxed"
+            style={{color: '#0f172a'}}
           />
 
           <div className="flex items-center gap-2 shrink-0">
