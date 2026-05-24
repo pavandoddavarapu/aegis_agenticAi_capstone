@@ -1,190 +1,107 @@
----
-title: Aegis Backend
-emoji: 🚀
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-app_port: 7860
-pinned: false
----
-# Aegis Clinical Intelligence System
+# ⚕️ Aegis Clinical Intelligence Platform
 
-Aegis is an advanced Clinical AI platform designed for clinical intelligence, agentic workflows, medical retrieval-augmented generation (RAG), and clinical validation.
+<div align="center">
+  <img src="https://img.shields.io/badge/Status-Active-success.svg?style=for-the-badge" alt="Status">
+  <img src="https://img.shields.io/badge/Python-3.11+-blue.svg?style=for-the-badge&logo=python" alt="Python">
+  <img src="https://img.shields.io/badge/Next.js-14+-black.svg?style=for-the-badge&logo=next.js" alt="Next.js">
+  <img src="https://img.shields.io/badge/FastAPI-0.109+-009688.svg?style=for-the-badge&logo=fastapi" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Architecture-Multi--Agent-orange.svg?style=for-the-badge" alt="Multi-Agent">
+</div>
 
-## Repository Structure
+<br />
 
-```text
-aegis-clinical-ai/
-│
-├── backend/
-│   ├── api/             # FastAPI routes and endpoints
-│   │   ├── health.py    # Infrastructure health checks
-│   │   ├── upload.py    # Document ingestion endpoint
-│   │   ├── retrieve.py  # Phase 2 direct retrieval endpoint
-│   │   └── agentic.py   # Phase 3 POST /analyze — flagship endpoint
-│   ├── agents/          # Modular agent implementations (Phase 3)
-│   │   ├── retrieval_agent.py   # Fetches evidence from Qdrant
-│   │   ├── reasoning_agent.py   # LLM synthesis grounded in evidence
-│   │   ├── validation_agent.py  # Deterministic confidence scoring
-│   │   ├── reflection_agent.py  # Adaptive query expansion + retry
-│   │   └── supervisor_agent.py  # Routing + finalisation brain
-│   ├── orchestration/   # LangGraph workflow graph (Phase 3)
-│   │   └── graph.py     # Compiled StateGraph, run_workflow()
-│   ├── rag/             # Retrieval-augmented generation & search
-│   ├── validation/      # Clinical accuracy & guardrails
-│   ├── workflows/       # LangGraph and state workflows
-│   ├── memory/          # Short and long-term memory
-│   ├── observability/   # Tracing, logging, and evaluation
-│   ├── models/          # Data schemas and model definitions
-│   │   └── state.py     # AgentState — shared workflow state
-│   ├── utils/           # Shared utility functions
-│   └── main.py          # FastAPI application entrypoint
-│
-├── frontend/            # Next.js or Vite React interface
-├── docker/              # Docker configuration files
-├── docs/                # Project documentation and specifications
-├── tests/               # Unit, integration, and clinical tests
-│
-├── .env                 # Environment variables configuration
-├── requirements.txt     # Python core dependencies
-├── docker-compose.yml   # Multi-container orchestration (Qdrant, Redis, Postgres)
-└── README.md            # Project overview & documentation
-```
+Aegis is an advanced, multi-agent **Clinical Decision Support System (CDSS)** designed to assist healthcare professionals by orchestrating complex medical reasoning, multimodal evidence retrieval, and strict safety guardrails. With a stunning "Medical White" UI, Aegis acts as a powerful clinical copilot, providing evidence-based insights, differential diagnoses, and treatment pathways.
 
 ---
 
-## Phase 3 — Adaptive Agentic Workflow
+## ✨ Key Features
 
-### Architecture
-
-```
-User Query
-    │
-    ▼
-Supervisor Agent (orchestration brain)
-    │
-    ▼
-Retrieval Agent  ──>  Qdrant Vector DB
-    │
-    ▼
-Clinical Reasoning Agent  ──>  LLM (gpt-4o-mini)
-    │                          [grounded in evidence ONLY]
-    ▼
-Validation Agent  (deterministic — no LLM)
-    │
-    ▼  supervisor_router()
-   / \
-  /   \
-GOOD   BAD
-  │      │
-  ▼      ▼
-Final  Reflection Agent
-       (expand query, re-retrieve)
-            │
-            └──── loop back to Retrieval Agent
-                  (up to MAX_RETRIES=3)
-```
-
-### Agents
-
-| Agent | Role | LLM? |
-|-------|------|-------|
-| **Retrieval Agent** | Fetches top-k evidence chunks from Qdrant | No |
-| **Reasoning Agent** | Synthesises grounded clinical analysis | Yes (gpt-4o-mini) |
-| **Validation Agent** | Scores confidence (evidence + grounding + completeness) | No |
-| **Reflection Agent** | Diagnoses failure, expands query, re-retrieves | No |
-| **Supervisor Agent** | Routes workflow, enforces retries, finalises response | No |
-
-### Validation Scoring
-
-```
-composite_score = 0.40 x evidence_score
-               + 0.40 x grounding_score
-               + 0.20 x completeness_score
-
-confidence_threshold = 0.65   (configurable via env)
-```
-
-### Flagship Endpoint
-
-**`POST /analyze/`**
-
-```json
-// Request
-{ "query": "What are first-line treatments for type 2 diabetes?" }
-
-// Response
-{
-  "query": "...",
-  "reasoning": "## Clinical Analysis\n...",
-  "final_response": "...",
-  "evidence": [...],
-  "evidence_count": 5,
-  "confidence_score": 0.782,
-  "confidence_label": "HIGH",
-  "validation_detail": "Validation PASSED | score=0.782 ...",
-  "workflow_trace": ["retrieve", "reason", "validate", "finalize"],
-  "retry_count": 0,
-  "reflection_notes": "",
-  "processing_ms": 2340,
-  "status": "success"
-}
-```
-
-The `workflow_trace` field shows the exact execution path through the agent graph — enabling full explainability.
+- 🧠 **Multi-Agent Orchestration**: A hierarchical network of specialized AI agents handling reasoning, retrieval, validation, and reflection.
+- 🩺 **Clinical Guardrails**: Deterministic safety checks ensuring HIPAA compliance, safe outputs, and strict prompt adherence.
+- 🕸️ **GraphRAG & Multimodal Retrieval**: Deep semantic search across medical literature, integrating unstructured text, OCR from medical imaging, and structured knowledge graphs.
+- 🛡️ **Human-in-the-Loop (HITL)**: Confidence scoring and contradiction detection that escalates critical decisions to human clinicians.
+- ⚡ **Real-Time Streaming**: Live streaming of the orchestration stages, giving transparency into the AI's "thought process."
+- 🎨 **Medical White Aesthetic**: A clean, premium user interface designed specifically for clinical environments.
 
 ---
 
-## Getting Started
+## 🏗️ Layered Architecture
 
-### 1. Setup Virtual Environment
+Aegis is built on a robust, multi-layered architecture designed for scale, safety, and performance.
 
+### 1. Presentation Layer (Frontend)
+Built with **Next.js**, **React**, and **Tailwind CSS**. It features a modern, accessible, and responsive "Medical White" UI tailored for clinical settings. Includes interactive chat interfaces, real-time evidence scorecards, and live execution trace viewers.
+
+### 2. API & Orchestration Layer (Backend)
+Powered by **FastAPI**. This layer manages asynchronous API requests, websocket streaming, session context, and orchestrates the lifecycle of the Multi-Agent System.
+
+### 3. Agentic Cognitive Layer (Multi-Agent System)
+The core intelligence engine. Specialized agents work collaboratively to resolve complex clinical queries:
+- 👑 **Supervisor Agent**: The orchestrator that routes tasks and manages the execution flow.
+- 🧠 **Reasoning Agent**: Synthesizes medical information to generate hypotheses and clinical insights.
+- 🔍 **Retrieval Agent**: Fetches relevant medical literature, guidelines, and patient context.
+- ⚖️ **Validation Agent**: Cross-references outputs against established medical knowledge to prevent hallucinations.
+- 🪞 **Reflection Agent**: Critiques the reasoning and suggests replanning if contradictions are found.
+- 🗺️ **Orchestration Planner**: Breaks down complex medical queries into executable sub-tasks.
+
+### 4. Safety & Guardrails Layer
+A dedicated deterministic layer that intercepts data at the API and agent execution levels. Includes `InputGuardrail`, `OutputGuardrail`, `ClinicalGuardrail`, and `PromptGuardrail` to enforce safety and formatting.
+
+### 5. Knowledge & RAG Layer
+Implements **GraphRAG** (Graph Retrieval-Augmented Generation) and **Multimodal Retrieval** (OCR pipelines for X-Rays/ECGs). Converts clinical data into structured graphs using Cypher templates for precise semantic querying.
+
+### 6. Telemetry & Evaluation Layer
+Tracks multi-agent traces, logs orchestration events, and performs failure analytics to continuously monitor system performance and accuracy.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v18+)
+- Python (v3.11+)
+- Git
+
+### 1. Clone the Repository
 ```bash
+git clone https://github.com/pavandoddavarapu/aegis_agenticAi_capstone.git
+cd aegis_agenticAi_capstone
+```
+
+### 2. Backend Setup
+```bash
+cd backend
 python -m venv venv
-# Windows
-venv\Scripts\activate
-# Mac/Linux
-source venv/bin/activate
-```
-
-### 2. Install Dependencies
-
-```bash
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
 pip install -r requirements.txt
 ```
+*Note: Ensure you configure your environment variables (e.g., `.env`) for API keys and database connections before running.*
 
-### 3. Configure Environment
-
+Start the FastAPI server:
 ```bash
-# .env
-OPENAI_API_KEY=sk-...
-QDRANT_URL=http://localhost:6333
-
-# Optional Phase 3 tuning
-REASONING_MODEL=gpt-4o-mini
-CONFIDENCE_THRESHOLD=0.65
-MAX_RETRIES=3
-RETRIEVAL_TOP_K=5
-EXPANDED_TOP_K=8
+uvicorn main:app --reload --port 8000
 ```
 
-### 4. Start Infrastructure Containers
-
+### 3. Frontend Setup
 ```bash
-docker-compose up -d
+cd ../frontend
+npm install
+npm run dev
 ```
 
-This will run:
-- **Qdrant Vector DB** on port `6333`
-- **Redis Cache/Memory** on port `6379`
-- **Postgres Database** on port `5432`
+The application will be available at `http://localhost:3000`.
 
-### 5. Run the Backend API
+---
 
-```bash
-uvicorn backend.main:app --reload
-```
+## 🔬 Use Cases
+- **Diagnostic Copilot**: "65-year-old male with crushing chest pain, BP 160/100, HR 95, diabetic. What is the differential diagnosis?"
+- **Treatment Pathways**: Cross-reference patient vitals with the latest medical guidelines to suggest safe treatment plans.
+- **Multimodal Intake**: Upload clinical files (ECG, X-Ray, PDF reports) for automated OCR and semantic extraction.
 
-The API will be available at `http://127.0.0.1:8000` with interactive documentation at `http://127.0.0.1:8000/docs`.
+---
 
-"# aegis_agenticAi_capstone"
+## 🛡️ Governance & Safety
+Aegis prioritizes patient safety above all. The system uses a built-in **Clinical Grounding Score**. If confidence falls below the safe threshold, or if cross-source contradictions are found, the system immediately flags the case as **"Clinician Approval Escalated"** (Human-in-the-Loop required).
+
+---
+*Disclaimer: Aegis is a Clinical Decision Support System. It is intended to assist, not replace, professional medical judgment.*
