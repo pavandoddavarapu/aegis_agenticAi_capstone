@@ -5,16 +5,22 @@ import { PatientIntake, UploadedFile, AnalysisResult, ClinicalSection, Clarifica
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-function getErrorMessage(error: any, fallback: string): string {
+function getErrorMessage(error: unknown, fallback: string): string {
   if (!error) return fallback;
-  if (typeof error.detail === "string") return error.detail;
-  if (Array.isArray(error.detail)) {
-    return error.detail.map((d: any) => `${d.loc?.join(".") || "field"}: ${d.msg}`).join("; ");
+  const errRecord = error as Record<string, unknown>;
+  if (typeof errRecord.detail === "string") return errRecord.detail;
+  if (Array.isArray(errRecord.detail)) {
+    return errRecord.detail.map((d: unknown) => {
+      const item = d as Record<string, unknown>;
+      const locStr = Array.isArray(item.loc) ? item.loc.join(".") : "field";
+      return `${locStr}: ${item.msg ?? "error"}`;
+    }).join("; ");
   }
-  if (error.detail && typeof error.detail === "object") {
-    return error.detail.message || JSON.stringify(error.detail);
+  if (errRecord.detail && typeof errRecord.detail === "object") {
+    const detailObj = errRecord.detail as Record<string, unknown>;
+    return (detailObj.message as string) || JSON.stringify(errRecord.detail);
   }
-  return error.message || JSON.stringify(error) || fallback;
+  return (errRecord.message as string) || JSON.stringify(error) || fallback;
 }
 
 // ── Query builder ──────────────────────────────────────────────────────────
@@ -273,7 +279,7 @@ export async function runAnalysisWithStreaming(
   onError?: (err: Error) => void,
 ) {
   try {
-    const body: Record<string, any> = { query };
+    const body: Record<string, unknown> = { query };
     if (sessionId) body.session_id = sessionId;
     if (clarificationAnswers && Object.keys(clarificationAnswers).length > 0) {
       body.clarification_answers = clarificationAnswers;
@@ -338,10 +344,13 @@ export async function runAnalysisWithStreaming(
         } else if (event.event === "error") {
           throw new Error(event.message);
         }
-      } catch (e) {}
+      } catch {
+        // Ignore parse error
+      }
     }
-  } catch (err: any) {
-    console.error("Streaming error:", err);
-    onError?.(err);
+  } catch (err) {
+    const errorObject = err instanceof Error ? err : new Error(String(err));
+    console.error("Streaming error:", errorObject);
+    onError?.(errorObject);
   }
 }

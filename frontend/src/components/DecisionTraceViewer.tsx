@@ -35,7 +35,7 @@ export default function DecisionTraceViewer() {
             <span className="text-foreground">{"{"}</span>
             {Object.entries(trace).map(([key, value], idx, arr) => (
               <div key={key} className="pl-4">
-                <span className="text-blue-400">"{key}"</span>
+                <span className="text-blue-400">&quot;{key}&quot;</span>
                 <span className="text-foreground">: </span>
                 <span className={typeof value === 'boolean' ? 'text-orange-400' : 'text-green-400'}>
                   {typeof value === 'boolean' ? value.toString() : typeof value === 'number' ? value : `"${value}"`}

@@ -155,7 +155,7 @@ function RecentCaseRow({ c }: { c: RecentCase }) {
 // ── Main Governance Panel ──────────────────────────────────────────────────
 
 export default function GovernancePanel() {
-  const { status, result, recentCases } = useWorkspaceStore();
+  const { result, recentCases } = useWorkspaceStore();
 
   return (
     <div className="h-full flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar">

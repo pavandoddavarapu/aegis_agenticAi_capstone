@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ReactFlow, Background, Controls, Node, Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useTelemetryStore } from "@/stores/telemetryStore";
+
+interface TimelineStep {
+  node: string;
+  success: boolean;
+}
 
 const initialNodes: Node[] = [
   { id: "decide", position: { x: 250, y: 0 }, data: { label: "Decision Engine" }, type: "default" },
@@ -26,53 +30,47 @@ const initialEdges: Edge[] = [
 ];
 
 export default function WorkflowGraph() {
-  const [nodes, setNodes] = useState<Node[]>(initialNodes);
-  const [edges, setEdges] = useState<Edge[]>(initialEdges);
-
   const { timeline } = useTelemetryStore();
-  const timelineSteps = timeline?.timeline || [];
+  const timelineSteps = (timeline?.timeline || []) as TimelineStep[];
 
-  // Apply some styling to nodes based on timeline success
-  useEffect(() => {
-    const updatedNodes = nodes.map((node) => {
-      const step = timelineSteps.find((t: any) => t.node === node.id);
-      if (step) {
-        return {
-          ...node,
-          style: {
-            background: step.success ? "hsl(var(--card))" : "hsl(var(--destructive)/0.2)",
-            color: "hsl(var(--foreground))",
-            border: `1px solid ${step.success ? "hsl(var(--border))" : "hsl(var(--destructive))"}`,
-            borderRadius: "8px",
-            padding: "10px",
-            fontSize: "12px",
-            width: 140,
-            textAlign: "center" as const,
-          }
-        };
-      }
+  // Derive styled nodes directly during rendering to avoid synchronous setState inside useEffect
+  const nodes = initialNodes.map((node) => {
+    const step = timelineSteps.find((t) => t.node === node.id);
+    if (step) {
       return {
-          ...node,
-          style: {
-            background: "hsl(var(--card))",
-            color: "hsl(var(--foreground))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: "8px",
-            padding: "10px",
-            fontSize: "12px",
-            width: 140,
-            textAlign: "center" as const,
-          }
+        ...node,
+        style: {
+          background: step.success ? "hsl(var(--card))" : "hsl(var(--destructive)/0.2)",
+          color: "hsl(var(--foreground))",
+          border: `1px solid ${step.success ? "hsl(var(--border))" : "hsl(var(--destructive))"}`,
+          borderRadius: "8px",
+          padding: "10px",
+          fontSize: "12px",
+          width: 140,
+          textAlign: "center" as const,
+        }
       };
-    });
-    setNodes(updatedNodes);
-  }, [timeline]);
+    }
+    return {
+      ...node,
+      style: {
+        background: "hsl(var(--card))",
+        color: "hsl(var(--foreground))",
+        border: "1px solid hsl(var(--border))",
+        borderRadius: "8px",
+        padding: "10px",
+        fontSize: "12px",
+        width: 140,
+        textAlign: "center" as const,
+      }
+    };
+  });
 
   return (
     <div className="h-full w-full bg-secondary/20 rounded-lg border border-border">
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={initialEdges}
         fitView
         attributionPosition="bottom-right"
       >

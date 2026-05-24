@@ -247,7 +247,7 @@ export interface AnalysisResult {
 
   // Phase 13: Session
   session_id?: string;
-  trace_summary?: any;
+  trace_summary?: Record<string, unknown>;
 }
 
 export interface RecentCase {

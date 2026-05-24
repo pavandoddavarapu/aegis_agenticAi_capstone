@@ -18,8 +18,14 @@ export default function ReflectionVisualization() {
     );
   }
 
+  interface ValidationTelemetryEvent {
+    event_type: string;
+    node?: string;
+    confidence_score?: number;
+  }
+
   // Extract prior confidence from early validation events if available
-  const validationEvents = data?.events?.filter((e: any) => e.event_type === "node_end" && e.node === "validate") || [];
+  const validationEvents = data?.events?.filter((e: ValidationTelemetryEvent) => e.event_type === "node_end" && e.node === "validate") || [];
   const priorConfidence = validationEvents.length > 1 ? parseFloat(validationEvents[0].confidence_score || 0).toFixed(2) : 0.0;
   const triggerReason = validationEvents.length > 1 
     ? `Initial validation score (${priorConfidence}) fell below strict safety threshold.` 

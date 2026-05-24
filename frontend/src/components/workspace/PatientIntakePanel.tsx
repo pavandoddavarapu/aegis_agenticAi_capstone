@@ -120,7 +120,7 @@ export default function PatientIntakePanel() {
     { key: "hr",       label: "HR",       icon: "💓", filled: !!vitals.heartRate,                                    weight: 2 },
     { key: "o2",       label: "O₂",       icon: "🫁", filled: !!vitals.oxygenSaturation,                            weight: 2 },
     { key: "symptoms", label: "Symptoms", icon: "🩺", filled: Object.entries(symptoms).some(([k,v]) => k !== "freeText" && v === true), weight: 3 },
-    { key: "history",  label: "PMH",      icon: "📋", filled: Object.entries(history).some(([k,v]) => typeof v === "boolean" && v), weight: 2 },
+    { key: "history",  label: "PMH",      icon: "📋", filled: Object.entries(history).some(([,v]) => typeof v === "boolean" && v), weight: 2 },
     { key: "meds",     label: "Meds",     icon: "💊", filled: !!history.medications,                                 weight: 2 },
     { key: "notes",    label: "Notes",    icon: "📝", filled: (intake.clinicianNotes?.length ?? 0) > 20,             weight: 3 },
   ], [vitals, symptoms, history, intake.clinicianNotes]);

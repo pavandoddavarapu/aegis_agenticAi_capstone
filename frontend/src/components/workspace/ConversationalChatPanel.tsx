@@ -9,11 +9,13 @@ import {
   ClinicalSection,
   Severity,
   EvidenceItem,
+  ClarificationQuestion,
+  CopilotResponse,
+  PatientContextSummary,
 } from "@/types/clinical";
 import {
   runAnalysisWithStreaming,
   askCopilot,
-  submitClarificationAnswers,
 } from "@/services/analysisService";
 import ClarificationPanel from "./ClarificationPanel";
 import {
@@ -26,17 +28,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Cpu,
-  GitBranch,
   Activity,
   FileText,
-  Sparkles,
   ChevronDown,
   ChevronUp,
   RotateCcw,
-  BookOpen,
-  Eye,
-  Check,
-  AlertCircle,
   TrendingUp,
   Compass,
   HelpCircle
@@ -206,7 +202,7 @@ const TraceViewer = React.memo(function TraceViewer({ msg }: { msg: Conversation
   const [activeTab, setActiveTab] = useState<"orchestration" | "evidence" | "governance">("orchestration");
 
   const result = msg.metadata?.result as AnalysisResult | undefined;
-  const copilotResponse = msg.metadata?.copilotResponse as any | undefined;
+  const copilotResponse = msg.metadata?.copilotResponse as CopilotResponse | undefined;
 
   const hasTrace = !!result || !!copilotResponse;
   if (!hasTrace) return null;
@@ -533,13 +529,14 @@ const TraceViewer = React.memo(function TraceViewer({ msg }: { msg: Conversation
                     const originalList = result.trace_summary?.node_spans || result.workflow_trace || [];
                     
                     // Filter out redundant routing hops (transitions) and keep only initial plan and true corrective/retry planning.
-                    const filteredList: any[] = [];
+                    const filteredList: unknown[] = [];
                     const seenNodes = new Set<string>();
                     let totalPlans = 0;
                     
-                    originalList.forEach((item: any, idx: number) => {
-                      const isSpan = typeof item === 'object' && item !== null && 'node' in item;
-                      const nodeName = isSpan ? item.node : item;
+                    originalList.forEach((item: unknown, idx: number) => {
+                      const itemRecord = item as Record<string, unknown>;
+                      const isSpan = typeof item === 'object' && item !== null && 'node' in itemRecord;
+                      const nodeName = isSpan ? (itemRecord.node as string) : (item as string);
                       
                       if (nodeName === 'plan') {
                         totalPlans++;
@@ -555,15 +552,15 @@ const TraceViewer = React.memo(function TraceViewer({ msg }: { msg: Conversation
                           
                           const prevFailed = prevItem && (
                             typeof prevItem === 'object' && prevItem !== null && 'success' in prevItem 
-                              ? !prevItem.success 
+                              ? !(prevItem as Record<string, unknown>).success 
                               : false
                           );
                           
                           let nextIsRetry = false;
                           if (nextItem) {
                             const nextNodeName = typeof nextItem === 'object' && nextItem !== null && 'node' in nextItem 
-                              ? nextItem.node 
-                              : nextItem;
+                              ? (nextItem as Record<string, unknown>).node as string
+                              : nextItem as string;
                             if (seenNodes.has(nextNodeName)) {
                               nextIsRetry = true;
                             }
@@ -580,12 +577,13 @@ const TraceViewer = React.memo(function TraceViewer({ msg }: { msg: Conversation
                     });
 
                     let planCount = 0;
-                    return filteredList.map((spanOrStep: any, idx: number) => {
-                      const isSpan = typeof spanOrStep === 'object' && spanOrStep !== null && 'node' in spanOrStep;
-                      const nodeName = isSpan ? spanOrStep.node : spanOrStep;
-                      const duration = isSpan ? spanOrStep.duration_ms : undefined;
-                      const success = isSpan ? spanOrStep.success : true;
-                      const errorMsg = isSpan ? spanOrStep.error_msg : undefined;
+                    return filteredList.map((spanOrStep: unknown, idx: number) => {
+                      const spanRecord = spanOrStep as Record<string, unknown>;
+                      const isSpan = typeof spanOrStep === 'object' && spanOrStep !== null && 'node' in spanRecord;
+                      const nodeName = isSpan ? (spanRecord.node as string) : (spanOrStep as string);
+                      const duration = isSpan ? (spanRecord.duration_ms as number) : undefined;
+                      const success = isSpan ? (spanRecord.success as boolean) : true;
+                      const errorMsg = isSpan ? (spanRecord.error_msg as string) : undefined;
 
                       const meta = { ...(nodeMeta[nodeName] || {
                         label: nodeName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
@@ -726,7 +724,7 @@ const TraceViewer = React.memo(function TraceViewer({ msg }: { msg: Conversation
                   <span>Confidence Score Evolution</span>
                 </p>
                 <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/40 border border-slate-850 p-2.5 rounded-lg">
-                  {result.trace_summary.confidence_history.map((hist: any, i: number) => {
+                  {result.trace_summary.confidence_history.map((hist: [string, number], i: number) => {
                     const nodeName = hist[0];
                     const score = hist[1];
                     const label = nodeMeta[nodeName]?.label || nodeName;
@@ -751,7 +749,7 @@ const TraceViewer = React.memo(function TraceViewer({ msg }: { msg: Conversation
               <div className="space-y-2 border-t border-slate-900/60 pt-3">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Supervisor Routing Decisions</p>
                 <div className="space-y-2">
-                  {result.trace_summary.routing_decisions.map((dec: any, i: number) => {
+                  {result.trace_summary.routing_decisions.map((dec: { at_node: string; decision: string; score?: number; reason: string }, i: number) => {
                     const fromMeta = nodeMeta[dec.at_node] || { label: dec.at_node };
                     const toMeta = nodeMeta[dec.decision] || { label: dec.decision };
                     return (
@@ -1117,7 +1115,7 @@ const MessageItem = React.memo(function MessageItem({ msg, onClarificationSubmit
         {msg.message_type === "clarification" && !!msg.metadata?.questions && (
           <div className="w-full max-w-lg">
             <ClarificationPanel
-              questions={msg.metadata.questions as any[]}
+              questions={msg.metadata.questions as ClarificationQuestion[]}
               onSubmit={onClarificationSubmit}
               onSkip={onClarificationSkip}
             />
@@ -1296,7 +1294,7 @@ export default function ConversationalChatPanel() {
           setStreamingMessage(null);
 
           if (res.patient_context) {
-            setPatientContext(res.patient_context as any);
+            setPatientContext(res.patient_context as PatientContextSummary);
           }
 
           if (res.status === "clarification_required" || res.clarification_required) {
@@ -1355,11 +1353,12 @@ export default function ConversationalChatPanel() {
           });
         }
       );
-    } catch (err: any) {
+    } catch (err) {
+      const errorObject = err instanceof Error ? err : new Error(String(err));
       setStreamingStage(null);
       setStreamingMessage(null);
       setStatus("error");
-      setError(err.message);
+      setError(errorObject.message);
     }
   };
 
@@ -1414,13 +1413,14 @@ export default function ConversationalChatPanel() {
         message_type: "text",
         metadata: { confidence: copilotResponse.confidence, copilotResponse },
       });
-    } catch (err: any) {
+    } catch (err) {
+      const errorObject = err instanceof Error ? err : new Error(String(err));
       setStatus("error");
-      setError(err.message);
+      setError(errorObject.message);
       addMessage({
         message_id: generateId(),
         role: "assistant",
-        content: `Sorry, I encountered an error answering that: ${err.message}.`,
+        content: `Sorry, I encountered an error answering that: ${errorObject.message}.`,
         timestamp: new Date().toISOString(),
         message_type: "text",
       });

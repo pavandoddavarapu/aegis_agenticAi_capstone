@@ -1,9 +1,34 @@
 import { create } from "zustand";
 
+interface TelemetryEvent {
+  event_type: string;
+  dense_candidates?: number;
+  sparse_candidates?: number;
+  final_docs?: number;
+  top_score: number;
+  avg_score: number;
+}
+
+interface TelemetryData {
+  request_id?: string;
+  escalation_required?: boolean;
+  risk_level?: string;
+  events?: TelemetryEvent[];
+}
+
+interface TelemetryTimeline {
+  request_id?: string;
+  timeline?: Array<{ node: string; success: boolean }>;
+}
+
+interface TelemetryMetrics {
+  total_requests?: number;
+}
+
 interface TelemetryState {
-  data: any | null;
-  timeline: any | null;
-  metrics: any | null;
+  data: TelemetryData | null;
+  timeline: TelemetryTimeline | null;
+  metrics: TelemetryMetrics | null;
   isPolling: boolean;
   startPolling: () => void;
   stopPolling: () => void;

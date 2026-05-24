@@ -174,7 +174,7 @@ export default function WorkspacePage() {
                         </p>
                         <div className="space-y-2 font-mono text-[9px] text-slate-400">
                           {result.monitor_events.slice(-4).map((ev, idx) => {
-                            const e = ev as Record<string, any>;
+                            const e = ev as Record<string, unknown>;
                             return (
                               <div key={idx} className="flex justify-between items-center py-0.5 border-b border-slate-850 last:border-0">
                                 <span className="capitalize text-slate-500 truncate max-w-[150px]">

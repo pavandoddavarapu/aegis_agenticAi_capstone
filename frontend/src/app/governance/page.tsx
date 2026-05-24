@@ -136,7 +136,7 @@ function ReviewModal({
           <div>
             <p className="text-xs font-medium text-slate-400 mb-1 uppercase tracking-wide">Query Preview</p>
             <p className="rounded-lg bg-slate-800 p-3 text-sm text-slate-300 italic">
-              "{record.query_preview}"
+              &ldquo;{record.query_preview}&rdquo;
             </p>
           </div>
 
@@ -313,7 +313,9 @@ export default function GovernanceDashboard() {
     }
   }, [tab]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchStats(); }, [fetchStats]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (tab !== "audit") fetchReviews(); else fetchAudit(); }, [tab, fetchReviews, fetchAudit]);
 
   const handleSubmitReview = async (action: string, reviewedBy: string, notes: string, override?: string) => {

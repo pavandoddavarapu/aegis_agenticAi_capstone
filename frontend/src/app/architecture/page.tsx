@@ -142,7 +142,7 @@ export default function ArchitectureDashboard() {
             </div>
 
             <div className="p-6 rounded-2xl border border-amber-500/20 bg-amber-500/5">
-              <h3 className="font-bold text-amber-300 mb-3 flex items-center gap-2"><Zap className="w-4 h-4" /> Adaptive Execution: The Orchestrator's Rules</h3>
+              <h3 className="font-bold text-amber-300 mb-3 flex items-center gap-2"><Zap className="w-4 h-4" /> Adaptive Execution: The Orchestrator&apos;s Rules</h3>
               <div className="grid md:grid-cols-2 gap-3 text-sm text-slate-300">
                 {[
                   "Always starts with Query Understanding — even simple queries need variant generation.",
@@ -176,7 +176,7 @@ export default function ArchitectureDashboard() {
                   <h3 className="font-bold text-white">{e.title}</h3>
                   <p className="text-sm text-slate-400 leading-relaxed">{e.desc}</p>
                   <div className="mt-auto space-y-1.5 pt-3 border-t border-slate-800">
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">When It's Used</p>
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">When It&apos;s Used</p>
                     {e.useCases.map((u, j) => (
                       <div key={j} className="flex items-start gap-1.5 text-xs text-slate-300">
                         <span className="text-indigo-400 shrink-0">·</span> {u}

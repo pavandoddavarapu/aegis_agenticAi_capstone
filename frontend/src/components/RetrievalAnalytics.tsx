@@ -3,11 +3,20 @@
 import { useTelemetryStore } from "@/stores/telemetryStore";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
+interface TelemetryEvent {
+  event_type: string;
+  dense_candidates?: number;
+  sparse_candidates?: number;
+  final_docs?: number;
+  top_score: number;
+  avg_score: number;
+}
+
 export default function RetrievalAnalytics() {
   const { data: telemetryData } = useTelemetryStore();
   
   // Extract retrieval event from trace
-  const retrievalEvent = telemetryData?.events?.find((e: any) => e.event_type === "retrieval");
+  const retrievalEvent = telemetryData?.events?.find((e: TelemetryEvent) => e.event_type === "retrieval");
   
   const totalCandidates = (retrievalEvent?.dense_candidates || 0) + (retrievalEvent?.sparse_candidates || 0);
   const compressionRatio = totalCandidates > 0 ? ((retrievalEvent?.final_docs || 0) / totalCandidates) * 100 : 0;

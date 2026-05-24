@@ -20,7 +20,7 @@ export default function ExecutionTimeline() {
         {timelineSteps.length === 0 ? (
           <div className="text-sm text-muted-foreground italic">Waiting for execution timeline...</div>
         ) : (
-          timelineSteps.map((step: any, idx: number) => {
+          timelineSteps.map((step: { node: string; duration_ms: number; success: boolean }, idx: number) => {
             const width = Math.max((step.duration_ms / totalDuration) * 100, 2);
             const isSlow = step.duration_ms > 500;
             

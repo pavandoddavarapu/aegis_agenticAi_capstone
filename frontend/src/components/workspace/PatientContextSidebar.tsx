@@ -4,7 +4,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { FileUploadZone } from "./FileUploadZone";
 
 export default function PatientContextSidebar() {
-  const { sessionId, patientContext, clearSession, files } = useWorkspaceStore();
+  const { sessionId, patientContext, clearSession } = useWorkspaceStore();
 
   return (
     <div className="w-[320px] shrink-0 border-r border-slate-800/60 bg-slate-900/40 flex flex-col h-full overflow-hidden">
