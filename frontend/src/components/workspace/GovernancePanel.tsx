@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { AnalysisResult, RecentCase, Severity } from "@/types/clinical";
+import { getApiBase } from "@/lib/utils";
 
 // ── Confidence Gauge ───────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ function EscalationBanner({ result }: { result: AnalysisResult }) {
 
   if (!result.review_required && !result.escalation_required) return null;
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  const API_BASE = getApiBase();
 
   const handleQuickApprove = async () => {
     if (!result.review_id) return;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getApiBase } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ interface GovernanceStats {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE = getApiBase();
 
 const SEVERITY_CONFIG = {
   critical: { bg: "bg-red-500/15 border-red-500/40", badge: "bg-red-600 text-white", dot: "bg-red-500", label: "CRITICAL" },

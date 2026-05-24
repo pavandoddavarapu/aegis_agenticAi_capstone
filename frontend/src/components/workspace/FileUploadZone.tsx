@@ -4,6 +4,7 @@
 import { useCallback, useState } from "react";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { FileType, UploadedFile } from "@/types/clinical";
+import { getApiBase } from "@/lib/utils";
 
 const ACCEPT_TYPES = ".pdf,.png,.jpg,.jpeg,.ecg,.csv,.txt,.docx";
 const MAX_SIZE_MB = 15;
@@ -64,7 +65,7 @@ export function FileUploadZone() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const API_BASE = getApiBase();
 
       fetch(`${API_BASE}/upload/`, {
         method: "POST",

@@ -2,8 +2,9 @@
 // Phase 13: Added session management, session-aware analysis calls, and copilot API
 
 import { PatientIntake, UploadedFile, AnalysisResult, ClinicalSection, ClarificationAnswers, Severity, CopilotResponse, SessionSummary } from "@/types/clinical";
+import { getApiBase } from "@/lib/utils";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE = getApiBase();
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (!error) return fallback;
