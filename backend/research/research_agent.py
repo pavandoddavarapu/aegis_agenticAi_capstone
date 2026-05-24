@@ -10,6 +10,7 @@ from typing import Dict, Any
 
 from backend.research.pubmed_client import PubMedClient
 from backend.research.clinical_trials_client import ClinicalTrialsClient
+from backend.research.wikipedia_client import WikipediaClient
 from backend.research.research_validator import ResearchValidator
 from backend.research.research_ranker import ResearchRanker
 from backend.research.temporary_context_manager import TemporaryContextManager
@@ -22,6 +23,7 @@ class ResearchAgent:
     def __init__(self):
         self.pubmed = PubMedClient()
         self.clinical_trials = ClinicalTrialsClient()
+        self.wikipedia = WikipediaClient()
         self.validator = ResearchValidator()
         self.ranker = ResearchRanker()
         self.context_manager = TemporaryContextManager()
@@ -35,26 +37,28 @@ class ResearchAgent:
         # Re-initialize to ensure fresh HTTP sessions if the agent is reused
         self.pubmed = PubMedClient()
         self.clinical_trials = ClinicalTrialsClient()
+        self.wikipedia = WikipediaClient()
         
         logger.info(f"[ResearchAgent] Starting live research for: '{query}'")
         
         try:
-            # 1. Search PubMed and ClinicalTrials.gov in parallel
-            logger.info("[ResearchAgent] Dispatching PubMed search and ClinicalTrials.gov search concurrently.")
+            # 1. Search PubMed, ClinicalTrials.gov, and Wikipedia in parallel
+            logger.info("[ResearchAgent] Dispatching PubMed, ClinicalTrials, and Wikipedia search concurrently.")
             pubmed_task = self.pubmed.search(query, max_results=10, strict_rct=strict_rct)
             trials_task = self.clinical_trials.search_trials(query, max_results=5)
+            wiki_task = self.wikipedia.search_articles(query, max_results=5)
             
-            pmids, trials = await asyncio.gather(pubmed_task, trials_task)
+            pmids, trials, wiki_docs = await asyncio.gather(pubmed_task, trials_task, wiki_task)
             
             # 2. Fetch PubMed Abstracts
             papers = []
             if pmids:
                 papers = await self.pubmed.fetch_summaries(pmids)
             
-            # Combine literature papers and clinical trials
-            all_documents = papers + trials
+            # Combine literature papers, clinical trials, and Wikipedia documents
+            all_documents = papers + trials + wiki_docs
             if not all_documents:
-                logger.warning("[ResearchAgent] No PMIDs or clinical trials found.")
+                logger.warning("[ResearchAgent] No PMIDs, clinical trials, or Wikipedia articles found.")
                 return ""
                 
             # 3. Validate (Remove retracted/poor quality)
@@ -76,6 +80,7 @@ class ResearchAgent:
             await asyncio.gather(
                 self.pubmed.close(),
                 self.clinical_trials.close(),
+                self.wikipedia.close(),
                 return_exceptions=True
             )
 
