@@ -62,6 +62,33 @@ async def lifespan(app: FastAPI):
     logger.info("[Main] Starting Aegis Clinical Intelligence System v13.0.0")
     await telemetry_bus.start()
     logger.info("[Main] TelemetryBus started.")
+    
+    # Pre-initialize GraphClient and warm up embeddings in background to avoid query cold-start
+    try:
+        import asyncio
+        from backend.graphrag.graph_client import GraphClient
+        from backend.rag.embeddings import embed_query_list
+
+        async def _warmup_services():
+            logger.info("[Main] Warming up background services (Neo4j & Embeddings)...")
+            # 1. Warm up Neo4j GraphClient
+            try:
+                g_client = GraphClient.get_instance()
+                await g_client.initialize()
+            except Exception as e:
+                logger.warning(f"[Main] Neo4j warm-up failed: {e}")
+                
+            # 2. Warm up Sentence-Transformers Embeddings model
+            try:
+                await asyncio.to_thread(embed_query_list, "warmup")
+                logger.info("[Main] Embeddings model warmed up successfully.")
+            except Exception as e:
+                logger.warning(f"[Main] Embeddings warm-up failed: {e}")
+                
+        asyncio.create_task(_warmup_services())
+    except Exception as exc:
+        logger.warning(f"[Main] Warm-up orchestration failed: {exc}")
+
     yield
     logger.info("[Main] Shutting down — flushing telemetry...")
     await telemetry_bus.stop()
