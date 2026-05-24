@@ -17,7 +17,7 @@ app_port: 7860
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.1.0%2B-orange.svg?style=flat)](https://github.com/langchain-ai/langgraph)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org)
 
-**Aegis** is an advanced, production-hardened clinical reasoning and intelligence platform. It coordinates specialized AI agents using a dynamic, planning-centric workflow built on **LangGraph**. Designed to serve as a physician’s decision-support copilot, Aegis safely processes patient presentations by executing structured vector retrieval (Qdrant), knowledge-graph entity tracing (Neo4j), live internet clinical research (PubMed/Semantic Scholar), multimodal clinical image/report analysis (ECG, Radiology, OCR), and clinician clarification loops—all wrapped in strict clinical safety guardrails and an audit logging infrastructure.
+**Aegis** is an advanced, production-hardened clinical reasoning and intelligence platform. It coordinates specialized AI agents using a dynamic, planning-centric workflow built on **LangGraph**. Designed to serve as a physician’s decision-support copilot, Aegis safely processes patient presentations by executing structured vector retrieval (Qdrant), knowledge-graph entity tracing (Neo4j), live internet clinical research (PubMed/Wikipedia Medicine), multimodal clinical image/report analysis (ECG, Radiology, OCR), and clinician clarification loops—all wrapped in strict clinical safety guardrails and an audit logging infrastructure.
 
 ---
 
@@ -99,7 +99,7 @@ Aegis implements a collaborative agent collective. Each node is instrumented wit
 | **Clarification Node** | [graph.py](file:///backend/orchestration/graph.py) | `clarification_questions` | `clarification_required`, `final_response` | Halts the graph execution and prompts the clinician for missing vital information. |
 | **Query Agent** | [query_agent.py](file:///backend/agents/query_agent.py) | `query` | `query_variants`, `query_plan` | Expands medical acronyms, translates layman phrasing, and builds optimized sub-queries. |
 | **Retrieval Agent** | [retrieval_agent.py](file:///backend/agents/retrieval_agent.py) | `query_variants`, `retrieval_strategy` | `retrieved_docs`, `compressed_context`, `graph_context` | Performs hybrid vector (Qdrant) and graph (Neo4j) queries to build the evidence base. |
-| **Research Agent** | [research_agent.py](file:///backend/research/research_agent.py) | `query` | `live_research_context` | Conducts parallel live internet clinical searches (PubMed, Semantic Scholar, ClinicalTrials.gov). |
+| **Research Agent** | [research_agent.py](file:///backend/research/research_agent.py) | `query` | `live_research_context` | Conducts parallel live internet clinical searches (PubMed, Wikipedia Medicine, ClinicalTrials.gov). |
 | **Evidence Evaluator** | [evaluator.py](file:///backend/evaluation/evidence_evaluator.py) | `retrieved_docs`, `live_research_context` | `evidence_scores`, `evidence_quality_summary` | Ranks retrieved documents by level of evidence (Guidelines > RCTs > Obs) and filters weak sources. |
 | **Contradiction Analyzer**| [analyzer.py](file:///backend/evaluation/contradiction_analyzer.py) | `retrieved_docs`, `evidence_scores` | `contradiction_report`, `escalation_required` | Cross-checks sources for drug-drug interactions, dose range limits, and conflicting diagnoses. |
 | **Reasoning Agent** | [reasoning_agent.py](file:///backend/agents/reasoning_agent.py) | `compressed_context`, `visual_context` | `reasoning_output` | Synthesizes a clinical intelligence report grounded strictly in the validated evidence. |
@@ -107,6 +107,18 @@ Aegis implements a collaborative agent collective. Each node is instrumented wit
 | **Supervisor Agent** | [supervisor_agent.py](file:///backend/agents/supervisor_agent.py)| `validation_score`, `evidence_quality_summary`| `retry_count`, `next_agent`, `final_response` | Monitors quality metrics and routes either back to `reflect` for an adaptive replan or to `finalize`. |
 
 ---
+
+## 🔍 Live Research Subsystem & Latency Protections
+
+Aegis implements a low-latency live clinical research pipeline to bring real-world medical data into the decision-support system:
+1. **Wikipedia Medicine Integration**: Added direct Wikipedia query support via the MediaWiki API to retrieve clinical and medical summaries, mapping them to standard review schemas for evaluation scoring.
+2. **Concurrent Search Execution**: Queries PubMed, ClinicalTrials.gov, and Wikipedia concurrently using `asyncio.gather` for optimal performance.
+3. **Latency Protection (Semantic Scholar Decoupling)**: Removed the Semantic Scholar citation and lookup client from the active research path to prevent rate-limiting delays (`HTTP 429`) from blocking the agentic reasoning pipeline.
+4. **FastAPI Lifespan Startup Warm-up**: Configured FastAPI startup lifespan events to warm up the Neo4j `GraphClient` database connections and the SentenceTransformers embedding models in the background, completely eliminating first-query cold-start latency.
+5. **Dynamic Copilot Research**: Reconfigured `/analyze/copilot/` to automatically parse query strings for research/search intent. If detected, the copilot executes a concurrent live research lookup on PubMed, Wikipedia, and ClinicalTrials.gov, inserting the findings into the prompt context and updating the UI references with actual article titles in the `sources_used` response list.
+
+---
+
 
 ## 🔄 Adaptive Execution Workflow
 
@@ -225,11 +237,13 @@ aegis-clinical-ai/
 
 Aegis uses **Pydantic** to define structures, validate requests/responses, and ensure clean type interfaces across all system boundaries. Below are the primary models driving our data layer:
 
-### 1. Request & Response Contracts (`backend/api/agentic.py`)
-These models govern the core analysis invocation and streaming updates.
+### 1. Request & Response Contracts (`backend/api/agentic.py` & `backend/api/copilot_api.py`)
+These models govern the core analysis invocation, conversational copilot chat, and streaming updates.
 *   `AnalyzeRequest`: Accepts the user's clinical query, optional session ID, and answers to clarification questions.
-*   `AnalyzeResponse`: Returns the structured report alongside evidence citations, validation logs, and plan telemetry.
+*   `AnalyzeResponse`: Returns the structured report alongside evidence citations, validation logs, plan telemetry, and guardrail summaries.
 *   `ClarifyRequest`: Accepts responses to targeted questions from the clinician.
+*   `CopilotRequest`: Accept parameters for the clinical copilot chat, including the question, active patient context, conversation history, and optional session ID.
+*   `CopilotResponse`: Returns the copilot's answer, dynamic sources used (including live research paper/article titles), confidence estimation, and processing metadata.
 
 ```python
 class AnalyzeRequest(BaseModel):
@@ -237,18 +251,69 @@ class AnalyzeRequest(BaseModel):
     clarification_answers: Optional[Dict[str, str]] = None
     session_id: Optional[str] = None
 
+class EvidenceItem(BaseModel):
+    text:          str
+    score:         float
+    confidence:    str
+    source:        str
+    page:          int
+    section:       Optional[str] = None
+    document_type: str
+
 class AnalyzeResponse(BaseModel):
-    query: str
-    reasoning: str
-    final_response: str
-    query_type: str
-    query_variants: List[str]
-    evidence: List[EvidenceItem]
-    confidence_score: float
-    confidence_label: str
-    workflow_trace: List[str]
-    processing_ms: int
-    status: str
+    query:             str
+    reasoning:         str
+    final_response:    str
+    query_type:        str
+    query_variants:    List[str]
+    query_plan:        List[str]
+    evidence:          List[EvidenceItem]
+    evidence_count:    int
+    confidence_score:  float
+    confidence_label:  str
+    validation_detail: str
+    workflow_trace:    List[str]
+    retry_count:       int
+    reflection_notes:  str
+    processing_ms:     int
+    status:            str
+    error:             Optional[str] = None
+    review_required:    bool         = False
+    review_id:          Optional[str] = None
+    review_status:      str          = "not_required"
+    escalation_required: bool        = False
+    clinical_intent:         str          = "unknown"
+    execution_plan_summary:  Optional[Dict[str, Any]] = None
+    clarification_required:  bool         = False
+    clarification_questions: List[Dict[str, Any]] = Field(default_factory=list)
+    missing_information:     List[str]    = Field(default_factory=list)
+    evidence_quality_summary: Optional[Dict[str, Any]] = None
+    contradiction_summary:   Optional[Dict[str, Any]] = None
+    replan_count:            int          = 0
+    patient_context:         Optional[Dict[str, Any]] = None
+    monitor_events:          List[Dict[str, Any]] = Field(default_factory=list)
+    session_id:              Optional[str] = None
+    trace_summary:           Optional[Dict[str, Any]] = None
+    guardrails_summary:      Optional[Dict[str, Any]] = None
+    input_warnings:          List[str] = Field(default_factory=list)
+
+class ClarifyRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=8000)
+    clarification_answers: Dict[str, str]
+    session_id: Optional[str] = None
+
+class CopilotRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=2000)
+    clinical_context: str = Field(default="")
+    conversation_history: List[Dict[str, str]] = Field(default_factory=list)
+    session_id: Optional[str] = Field(default=None)
+
+class CopilotResponse(BaseModel):
+    answer: str
+    sources_used: List[str] = Field(default_factory=list)
+    confidence: str = "medium"
+    processing_ms: int = 0
+    session_id: Optional[str] = None
 ```
 
 ### 2. Conversational Sessions (`backend/models/session.py`)
@@ -357,7 +422,7 @@ Here is a guide to the primary API routes available on the Aegis backend:
 ### 💬 Conversational Copilot Endpoints
 *   `POST /session/`: Creates a new patient session. Tracks persistent state and clinical data as dialog turns progress.
 *   `GET /session/{session_id}`: Retrieves the details of a session, including extracted patient details and chat history.
-*   `POST /analyze/copilot/`: Connects the physician directly to the Aegis Clinical Copilot. This chatbot remains grounded in the active patient context, clinical timeline, and active evidence, allowing physicians to ask follow-up questions about the case.
+*   `POST /analyze/copilot/`: Connects the physician directly to the Aegis Clinical Copilot. This chatbot remains grounded in the active patient context, clinical timeline, and active evidence, allowing physicians to ask follow-up questions about the case. **Dynamic Research**: If a query has research intent, the copilot dynamically searches Wikipedia, PubMed, and ClinicalTrials.gov on-the-fly to return live medical evidence.
 
 ### 🏛️ Governance & Audit Endpoints
 *   `GET /governance/audit/events`: Retrieves the system audit trails and decision histories logged by the supervisor.
