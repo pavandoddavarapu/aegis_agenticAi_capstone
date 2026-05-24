@@ -85,6 +85,15 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.warning(f"[Main] Embeddings warm-up failed: {e}")
                 
+            # 3. Log LangSmith tracing configuration status
+            try:
+                if os.getenv("LANGCHAIN_TRACING_V2") == "true":
+                    logger.info(f"[Main] LangSmith tracing is ENABLED. Project: {os.getenv('LANGCHAIN_PROJECT', 'aegis-clinical-ai')}")
+                else:
+                    logger.info("[Main] LangSmith tracing is disabled. Set LANGCHAIN_TRACING_V2=true in .env to enable.")
+            except Exception as e:
+                logger.warning(f"[Main] Failed to check LangSmith status: {e}")
+                
         asyncio.create_task(_warmup_services())
     except Exception as exc:
         logger.warning(f"[Main] Warm-up orchestration failed: {exc}")

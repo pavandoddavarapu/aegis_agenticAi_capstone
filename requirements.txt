@@ -27,7 +27,9 @@ psycopg2-binary
 
 # ── Phase 5: Observability + Evaluation ──────────────────────────────────────
 asyncpg               # async PostgreSQL (telemetry storage bulk inserts)
+langsmith             # LangSmith tracing and observability
 # redis[asyncio] uses redis package already installed above (aioredis compatible)
+
 
 # ── Phase 6: GraphRAG + Neo4j ─────────────────────────────────────────────────
 neo4j                 # async Neo4j driver for knowledge graph operations

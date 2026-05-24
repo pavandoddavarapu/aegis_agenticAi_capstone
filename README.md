@@ -355,6 +355,12 @@ Before setting up Aegis, make sure you have the following installed on your mach
     NEO4J_URI=bolt://localhost:7687
     NEO4J_USER=neo4j
     NEO4J_PASSWORD=password
+
+    # LangSmith Tracing & Observability
+    LANGCHAIN_TRACING_V2=false                 # Set to true to enable tracing
+    LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+    LANGCHAIN_API_KEY=your_langsmith_api_key_here
+    LANGCHAIN_PROJECT="aegis-clinical-ai"
     ```
 
 ---
@@ -436,6 +442,11 @@ Aegis includes built-in observability modules to evaluate agent quality and spee
 *   `GET /monitoring/workflow/{request_id}`: Retrieves the execution path trace showing the precise order of agent nodes called during a query run.
 *   `GET /monitoring/agent-latency`: Compares the average run duration of different agents to identify performance bottlenecks.
 *   `GET /monitoring/evaluation/summary`: Evaluates average confidence scores and accuracy validation trends over time.
+
+### 🛠️ LangSmith Integration (Observability & Tracing)
+Aegis supports native agentic trace streaming to **LangSmith** for full-stack run visualization, LLM debugging, and token latency tracking.
+*   **Activation**: Set `LANGCHAIN_TRACING_V2=true` in your `.env` file and supply your `LANGCHAIN_API_KEY`.
+*   **Startup Verification**: The FastAPI server automatically checks and logs your LangSmith configuration status on startup (e.g. `[Main] LangSmith tracing is ENABLED`).
 
 ---
 
