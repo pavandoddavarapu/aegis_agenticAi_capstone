@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+@theme {
+  --color-slate-50: #020617;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-600: #94a3b8;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-850: #ecf0f5;
+  --color-slate-900: #f1f5f9;
+  --color-slate-950: #f8fafc;
+
+  --color-indigo-50: #1e1b4b;
+  --color-indigo-100: #312e81;
+  --color-indigo-200: #3730a3;
+  --color-indigo-300: #4338ca;
+  --color-indigo-400: #4f46e5;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #818cf8;
+  --color-indigo-700: #a5b4fc;
+  --color-indigo-800: #c7d2fe;
+  --color-indigo-900: #e0e7ff;
+  --color-indigo-950: #f5f7ff;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -32,6 +59,24 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+  }
+  
+  /* Force text inputs, selects, textareas, and headers to have dark text in light mode */
+  input, select, textarea {
+    color: #0f172a !important;
+  }
+  input::placeholder, textarea::placeholder {
+    color: #94a3b8 !important;
+  }
+  
+  /* Target titles/labels that use text-white class but aren't buttons/badges */
+  .text-white:not(button):not(a):not([class*="bg-"]):not([class*="hover\\:"]):not(.react-flow__handle) {
+    color: #0f172a !important;
+  }
+
+  /* Make sure icons inside inputs aren't invisible */
+  .text-slate-400, .text-slate-500 {
+    color: #64748b !important;
   }
 }
 
