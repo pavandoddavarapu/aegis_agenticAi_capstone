@@ -311,6 +311,7 @@ async def copilot_chat(
     Phase 13: When session_id is provided, context is enriched from the
     accumulated ConversationalPatientSession state.
     """
+    import asyncio
     start_ms = time.time()
     question = body.question.strip()
     logger.info(
@@ -344,6 +345,56 @@ async def copilot_chat(
                 f"{len(conversation_history)} history turns"
             )
 
+    sources_used = ["clinical_context", "conversation_history"]
+
+    # ── Phase 13: Detect research intent and execute live query ───────────────
+    lower_question = question.lower()
+    research_keywords = ["research", "search", "wikipedia", "pubmed", "clinical trial", "lookup", "find out about", "latest study", "latest literature", "evidence on", "medical data"]
+    if any(k in lower_question for k in research_keywords):
+        try:
+            logger.info(f"[CopilotAPI] Research intent detected in question. Invoking ResearchAgent...")
+            from backend.research.research_agent import ResearchAgent
+            research_agent = ResearchAgent()
+            
+            # Extract clean search query
+            search_query = question
+            for k in research_keywords + ["please", "can you", "for me"]:
+                search_query = search_query.replace(k, "")
+            search_query = search_query.strip("? . , ! \n\t")
+            if not search_query or len(search_query.split()) < 2:
+                search_query = question
+                
+            # Query concurrently
+            pubmed_task = research_agent.pubmed.search(search_query, max_results=3)
+            trials_task = research_agent.clinical_trials.search_trials(search_query, max_results=2)
+            wiki_task = research_agent.wikipedia.search_articles(search_query, max_results=3)
+            
+            pmids, trials, wiki_docs = await asyncio.gather(pubmed_task, trials_task, wiki_task)
+            
+            papers = []
+            if pmids:
+                papers = await research_agent.pubmed.fetch_summaries(pmids)
+                
+            all_docs = papers + trials + wiki_docs
+            if all_docs:
+                ranked_docs = research_agent.ranker.rank_papers(search_query, all_docs, top_k=5)
+                research_context = research_agent.context_manager.format_research_context(ranked_docs)
+                if research_context:
+                    clinical_context = f"{clinical_context}\n\n=== DYNAMIC RESEARCH EVIDENCE ===\n{research_context}"
+                    for doc in ranked_docs:
+                        title = doc.get("title", "")
+                        src = doc.get("source", "Wikipedia")
+                        sources_used.append(f"{src}: {title}")
+                        
+            await asyncio.gather(
+                research_agent.pubmed.close(),
+                research_agent.clinical_trials.close(),
+                research_agent.wikipedia.close(),
+                return_exceptions=True
+            )
+        except Exception as e:
+            logger.error(f"[CopilotAPI] Dynamic research failed: {e}")
+
     try:
         messages = _build_messages(
             question             = question,
@@ -374,7 +425,7 @@ async def copilot_chat(
 
         return CopilotResponse(
             answer        = answer,
-            sources_used  = ["clinical_context", "conversation_history"],
+            sources_used  = sources_used,
             confidence    = "high" if len(clinical_context) > 200 else "medium",
             processing_ms = elapsed_ms,
             session_id    = body.session_id,
