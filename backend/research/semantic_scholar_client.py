@@ -20,7 +20,7 @@ class SemanticScholarClient:
             "Accept": "application/json"
         }
         self._client = httpx.AsyncClient(headers=headers, timeout=5.0)
-        self._semaphore = asyncio.Semaphore(1) # serialize requests to avoid hitting rate limits too quickly
+        self._semaphore = asyncio.Semaphore(5) # run requests in parallel with concurrency limit
 
     async def close(self):
         await self._client.aclose()
@@ -41,14 +41,13 @@ class SemanticScholarClient:
             async with self._semaphore:
                 try:
                     # Polite sleep to keep rate limits clean
-                    await asyncio.sleep(0.2)
+                    await asyncio.sleep(0.1)
                     response = await self._client.get(url, params=params)
                     
                     if response.status_code == 429:
-                        delay = (2 ** attempt) + 1
-                        logger.warning(f"[SemanticScholarClient] Rate limited for PMID {pmid}. Retrying in {delay}s...")
-                        await asyncio.sleep(delay)
-                        continue
+                        # Fail fast on rate limits to protect retrieval response times
+                        logger.warning(f"[SemanticScholarClient] Rate limited (429) for PMID {pmid}. Failing fast to maintain sub-second latency.")
+                        return {"citationCount": 0, "influentialCitationCount": 0}
                         
                     if response.status_code == 404:
                         return {"citationCount": 0, "influentialCitationCount": 0}
@@ -65,6 +64,6 @@ class SemanticScholarClient:
                     logger.debug(f"[SemanticScholarClient] Attempt {attempt+1} failed for PMID {pmid}: {e}")
                     if attempt == 2:
                         return {"citationCount": 0, "influentialCitationCount": 0}
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.5)
         return {"citationCount": 0, "influentialCitationCount": 0}
 
