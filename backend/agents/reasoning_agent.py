@@ -15,6 +15,10 @@ import os
 from backend.models.state import AgentState
 from backend.utils.logger import logger
 from backend.utils.groq_pool import groq_chat_with_retry
+from backend.guardrails import PromptGuardrail  # Phase 14
+
+_prompt_guardrail = PromptGuardrail()
+
 
 # ── LLM Configuration ─────────────────────────────────────────────────────────
 REASONING_MODEL = "llama-3.3-70b-versatile" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini"
@@ -147,13 +151,30 @@ def reasoning_agent(state: AgentState) -> dict:
     )
 
     try:
+        # Phase 14: Prompt Guardrail — validate messages before LLM call
+        messages_to_send = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user",   "content": prompt},
+        ]
+        prompt_check = _prompt_guardrail.check(messages_to_send)
+        if not prompt_check.safe:
+            logger.warning(f"[ReasoningAgent] Prompt blocked by guardrail: {prompt_check.block_reason}")
+            return {
+                "reasoning_output": (
+                    f"⚠️ Clinical reasoning blocked by safety guardrail: "
+                    f"{prompt_check.block_reason}"
+                ),
+                "workflow_path": ["reason"],
+                "error": f"PromptGuardrail: {prompt_check.block_reason}",
+            }
+        if prompt_check.warnings:
+            for w in prompt_check.warnings:
+                logger.warning(f"[ReasoningAgent] PromptGuardrail warning: {w}")
+
         # Use key pool — automatically rotates to next key on 429/connection errors
         response = groq_chat_with_retry(
             model=REASONING_MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": prompt},
-            ],
+            messages=prompt_check.sanitized_messages,
             max_tokens=MAX_TOKENS,
             temperature=TEMPERATURE,
         )

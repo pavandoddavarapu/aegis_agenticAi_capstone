@@ -31,6 +31,12 @@ from backend.orchestration.graph import run_workflow, run_workflow_stream
 from backend.utils.logger import logger
 from backend.api.rate_limiter import limiter
 from backend.session.session_store import session_store   # Phase 13
+from backend.guardrails import InputGuardrail, OutputGuardrail, ClinicalGuardrail  # Phase 14
+
+_input_guardrail    = InputGuardrail()
+_output_guardrail   = OutputGuardrail()
+_clinical_guardrail = ClinicalGuardrail()
+
 
 
 router = APIRouter(prefix="/analyze", tags=["agentic"])
@@ -132,6 +138,9 @@ class AnalyzeResponse(BaseModel):
     # Phase 13: session ID echo
     session_id:              Optional[str] = None
     trace_summary:           Optional[Dict[str, Any]] = None
+    # Phase 14: Guardrails
+    guardrails_summary:      Optional[Dict[str, Any]] = None
+    input_warnings:          List[str] = Field(default_factory=list)
 
 
 # ── Helper ─────────────────────────────────────────────────────────────────────
@@ -290,10 +299,28 @@ async def analyze(
     clarification_answers = body.clarification_answers or {}
     session_id = body.session_id
 
+    # ── Phase 14: Input Guardrail ─────────────────────────────────────────────
+    input_check = _input_guardrail.check(query)
+    if input_check.blocked:
+        logger.warning(f"[AnalyzeAPI] Query BLOCKED by input guardrail: {input_check.block_reason}")
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error":        "query_rejected",
+                "block_reason": input_check.block_reason,
+                "message":      "Your query was rejected by the clinical safety guardrail.",
+            },
+        )
+    # Use sanitized (PII-scrubbed) version going forward
+    query = input_check.sanitized
+    input_warnings = input_check.warnings
+
     logger.info(
         f"[AnalyzeAPI] Received query: '{query[:80]}' "
         f"clarification_answers={bool(clarification_answers)} "
-        f"session_id={session_id}"
+        f"session_id={session_id} "
+        f"pii_scrubbed={input_check.pii_found}"
     )
 
     start_ms = time.time()
@@ -308,6 +335,45 @@ async def analyze(
 
         response = _build_response(query, final_state, elapsed_ms)
         response.session_id = session_id  # echo session_id back
+
+        # ── Phase 14: Output + Clinical Guardrails ────────────────────────────
+        out_check = _output_guardrail.check(
+            response=response.final_response,
+            risk_level=final_state.get("risk_level", "low"),
+            query=query,
+            image_emergency_flag=final_state.get("image_emergency_flag", False),
+            image_emergency_reason=final_state.get("image_emergency_reason", ""),
+        )
+        clin_check = _clinical_guardrail.check(
+            response=out_check.modified_response,
+            query=query,
+            clinical_intent=final_state.get("clinical_intent", ""),
+            patient_context=final_state.get("patient_context"),
+        )
+        response.final_response = clin_check.modified_response or out_check.modified_response
+        response.input_warnings  = input_warnings
+        response.guardrails_summary = {
+            "input": {
+                "pii_found": input_check.pii_found,
+                "pii_types": input_check.pii_types,
+                "warnings":  input_warnings,
+            },
+            "output": {
+                "safe":             out_check.safe,
+                "escalation_needed": out_check.escalation_needed,
+                "reasons":          out_check.reasons,
+                "warnings":         out_check.warnings,
+            },
+            "clinical": {
+                "critical_alerts":   clin_check.critical_alerts,
+                "warnings":         clin_check.warnings,
+                "escalation_needed": clin_check.escalation_needed,
+                "reasons":          clin_check.reasons,
+            },
+        }
+        # Merge escalation signal into review_required if either guardrail flagged it
+        if out_check.escalation_needed or clin_check.escalation_needed:
+            response.escalation_required = True
 
         # ── Phase 13: Update session state if session_id provided ──────────────────
         if session_id:

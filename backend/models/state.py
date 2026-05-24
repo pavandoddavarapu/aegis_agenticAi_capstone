@@ -190,3 +190,12 @@ class AgentState(TypedDict):
     session_id:              Optional[str]
     conversation_history:    List[Dict[str, str]]  # list of past messages {"role": "user/assistant", "content": "..."}
 
+    # ══════════════════════════════════════════════════════════════════════
+    # PHASE 14 — GUARDRAILS
+    # Written by: agentic.py API layer (input) + finalize (output/clinical)
+    # Read by:    API response, governance dashboard, audit logger
+    # ══════════════════════════════════════════════════════════════════════
+    guardrails_triggered:    List[str]       # list of guardrail IDs that fired
+    guardrails_summary:      Optional[Dict[str, Any]]  # full guardrail report
+    input_pii_found:         bool            # True if PII was scrubbed from input
+    input_pii_types:         List[str]       # types of PII detected/removed
