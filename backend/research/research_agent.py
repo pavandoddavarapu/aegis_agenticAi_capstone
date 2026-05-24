@@ -10,7 +10,6 @@ from typing import Dict, Any
 
 from backend.research.pubmed_client import PubMedClient
 from backend.research.clinical_trials_client import ClinicalTrialsClient
-from backend.research.semantic_scholar_client import SemanticScholarClient
 from backend.research.research_validator import ResearchValidator
 from backend.research.research_ranker import ResearchRanker
 from backend.research.temporary_context_manager import TemporaryContextManager
@@ -23,7 +22,6 @@ class ResearchAgent:
     def __init__(self):
         self.pubmed = PubMedClient()
         self.clinical_trials = ClinicalTrialsClient()
-        self.semantic_scholar = SemanticScholarClient()
         self.validator = ResearchValidator()
         self.ranker = ResearchRanker()
         self.context_manager = TemporaryContextManager()
@@ -37,7 +35,6 @@ class ResearchAgent:
         # Re-initialize to ensure fresh HTTP sessions if the agent is reused
         self.pubmed = PubMedClient()
         self.clinical_trials = ClinicalTrialsClient()
-        self.semantic_scholar = SemanticScholarClient()
         
         logger.info(f"[ResearchAgent] Starting live research for: '{query}'")
         
@@ -49,27 +46,10 @@ class ResearchAgent:
             
             pmids, trials = await asyncio.gather(pubmed_task, trials_task)
             
-            # 2. Fetch PubMed Abstracts and their citation metrics
+            # 2. Fetch PubMed Abstracts
             papers = []
             if pmids:
                 papers = await self.pubmed.fetch_summaries(pmids)
-                
-                # Fetch Semantic Scholar metrics for PubMed papers in parallel
-                if papers:
-                    logger.info(f"[ResearchAgent] Fetching citation metrics from Semantic Scholar for {len(papers)} papers.")
-                    metric_tasks = [
-                        self.semantic_scholar.fetch_citation_metrics(p.get("pmid", ""))
-                        for p in papers
-                    ]
-                    metrics = await asyncio.gather(*metric_tasks)
-                    
-                    # Attach metrics back to the papers
-                    for paper, metric in zip(papers, metrics):
-                        paper["citation_count"] = metric.get("citationCount", 0)
-                        paper["influential_citation_count"] = metric.get("influentialCitationCount", 0)
-                        # Fallback to Semantic Scholar TLDR if paper abstract is missing or too short
-                        if metric.get("tldr") and len(paper.get("abstract", "")) < 50:
-                            paper["abstract"] = metric["tldr"]
             
             # Combine literature papers and clinical trials
             all_documents = papers + trials
@@ -96,7 +76,6 @@ class ResearchAgent:
             await asyncio.gather(
                 self.pubmed.close(),
                 self.clinical_trials.close(),
-                self.semantic_scholar.close(),
                 return_exceptions=True
             )
 
