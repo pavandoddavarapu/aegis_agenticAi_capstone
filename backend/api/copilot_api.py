@@ -40,7 +40,7 @@ router = APIRouter(prefix="/analyze", tags=["copilot"])
 
 # ── LLM Configuration ─────────────────────────────────────────────────────────
 
-COPILOT_MODEL   = "llama-3.3-70b-versatile" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini"
+COPILOT_MODEL   = "gemini-2.0-flash" if os.getenv("GEMINI_API_KEY") else ("llama-3.3-70b-versatile" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini")
 COPILOT_TOKENS  = 400
 COPILOT_TEMP    = 0.25       # low temperature → consistent, reproducible answers
 
