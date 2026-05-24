@@ -7,13 +7,13 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.1.0%2B-orange.svg?style=flat)](https://github.com/langchain-ai/langgraph)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org)
 
-**Aegis** is an advanced, production-hardened clinical reasoning and intelligence platform. It coordinates specialized AI agents using a dynamic, planning-centric workflow built on **LangGraph**. Designed to serve as a physician’s decision-support copilot, Aegis safely processes patient presentations by executing structured vector retrieval (Qdrant), knowledge-graph entity tracing (Neo4j), live internet clinical research (PubMed/Semantic Scholar), multimodal clinical image/report analysis (ECG, Radiology, OCR), and clinician clarification loops—all wrapped in a strict clinical safety guardrail and human-in-the-loop governance infrastructure.
+**Aegis** is an advanced, production-hardened clinical reasoning and intelligence platform. It coordinates specialized AI agents using a dynamic, planning-centric workflow built on **LangGraph**. Designed to serve as a physician’s decision-support copilot, Aegis safely processes patient presentations by executing structured vector retrieval (Qdrant), knowledge-graph entity tracing (Neo4j), live internet clinical research (PubMed/Semantic Scholar), multimodal clinical image/report analysis (ECG, Radiology, OCR), and clinician clarification loops—all wrapped in strict clinical safety guardrails and an audit logging infrastructure.
 
 ---
 
 ## 🏛️ Layered System Architecture
 
-Aegis is constructed using a clean, decoupling-oriented layered architecture to ensure isolation of concerns, high throughput, and strict clinical governance:
+Aegis is constructed using a clean, decoupling-oriented layered architecture to ensure isolation of concerns, high throughput, and clinical safety compliance:
 
 ```mermaid
 graph TD
@@ -25,7 +25,7 @@ graph TD
 
     subgraph UI_Layer ["💻 1. Client & Presentation Layer (Next.js)"]
         A[Intake & Chat Workspace]:::client --> B[Intelligence Right Panel]:::client
-        B --> C[Governance Portal]:::client
+        B --> C[Audit Logs & Telemetry]:::client
         C --> D[Metrics Dashboard]:::client
     end
 
@@ -60,7 +60,7 @@ graph TD
 Built with **Next.js (App Router)** and **TypeScript**. Highlights:
 *   **Intake & Conversational Workspace**: A rich, responsive UI utilizing **Framer Motion** and **TailwindCSS** to perform conversational intake, upload clinical documents, and display structured outputs.
 *   **Intelligence Panel**: Powered by **Zustand** and **@xyflow/react**, this sidebar visualizes the active execution plan, source evaluation scores, detected contradictions, and clinical gaps.
-*   **Governance Hub**: A dedicated interface for medical reviewers to approve, reject, or override responses held for clinical safety reasons.
+*   **Audit Logger**: A system that records decision trails, evidence scores, and compliance validation details for post-execution clinical audits.
 
 ### 2. API & Session State Layer (FastAPI)
 The backend hub that manages requests and endpoints:
@@ -138,7 +138,7 @@ stateDiagram-v2
     Reflect --> Retrieve : Adapt Retrieval Settings
     SupervisorRouter --> Finalize : Score >= Threshold OR Max Retries
     
-    Finalize --> [*] : Apply Governance & Respond
+    Finalize --> [*] : Log Audit & Respond
 ```
 
 ---
@@ -159,13 +159,9 @@ Aegis is engineered for clinical environments where accuracy and safety are abso
 *   **Cross-Source Conflict Detection**: Actively parses recommendations from different retrieved documents to detect conflicting clinical directions.
 *   **Dosage & Interaction Warnings**: If two retrieved drugs are marked as interacting, a high-severity alert is raised, penalizing the execution confidence score.
 
-### 4. Post-Execution & HITL Governance (Output)
+### 4. Post-Execution Guardrails & Auditing (Output)
 *   **Grounding Validator**: Assesses whether every claim made in the clinical reasoning output is backed by a specific source identifier in `retrieved_docs`.
-*   **HITL Escalation Engine**: Automatically flags and halts clinical outputs under the following conditions:
-    *   Validation score drops below the confidence threshold.
-    *   A critical contradiction was discovered by the analyzer.
-    *   The patient case is classified as a high-risk or emergency workflow.
-*   **Clinical Review State**: When flagged, the output is held in a `PENDING_REVIEW` state. It is not returned to the clinician until a clinical supervisor reviews it through the Governance Portal and marks it as approved.
+*   **Audit Logging**: Automatically logs validation scores, contradiction reports, risk classifications, and agent timelines for post-execution logging and system evaluation.
 
 ---
 
@@ -212,6 +208,55 @@ aegis-clinical-ai/
 ├── docker-compose.yml             # Local Multi-Container Services configuration
 └── requirements.txt               # Backend Python dependencies
 ```
+
+---
+
+## 📦 Core Pydantic Models & Data Contracts
+
+Aegis uses **Pydantic** to define structures, validate requests/responses, and ensure clean type interfaces across all system boundaries. Below are the primary models driving our data layer:
+
+### 1. Request & Response Contracts (`backend/api/agentic.py`)
+These models govern the core analysis invocation and streaming updates.
+*   `AnalyzeRequest`: Accepts the user's clinical query, optional session ID, and answers to clarification questions.
+*   `AnalyzeResponse`: Returns the structured report alongside evidence citations, validation logs, and plan telemetry.
+*   `ClarifyRequest`: Accepts responses to targeted questions from the clinician.
+
+```python
+class AnalyzeRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=8000)
+    clarification_answers: Optional[Dict[str, str]] = None
+    session_id: Optional[str] = None
+
+class AnalyzeResponse(BaseModel):
+    query: str
+    reasoning: str
+    final_response: str
+    query_type: str
+    query_variants: List[str]
+    evidence: List[EvidenceItem]
+    confidence_score: float
+    confidence_label: str
+    workflow_trace: List[str]
+    processing_ms: int
+    status: str
+```
+
+### 2. Conversational Sessions (`backend/models/session.py`)
+Handles persistent, multi-turn clinical context.
+*   `ConversationMessage`: Tracks role, message content, and type (text or report).
+*   `AccumulatedPatientContext`: Extracts and accumulates patient age, gender, complaints, vitals, medications, allergies, and lab results.
+*   `ConversationalPatientSession`: Represents the complete session state, turn counts, and clinical history snapshots.
+
+### 3. Dynamic Execution Plans (`backend/decision/execution_plan.py`)
+Generated by the Orchestration Planner to map out agent sequences.
+*   `ClarificationQuestion`: Individual questions asked to clarify patient state.
+*   `ExecutionStep`: Single workflow step defining targeted agent, configuration, and priority.
+*   `ExecutionPlan`: Blueprint containing steps, evidence strategy, and clinical intent.
+
+### 4. RAG Schema Definitions (`backend/rag/schemas.py`)
+Handles text segmentation and search indexing.
+*   `Chunk`: Text passage metadata, document ID, and parent source index.
+*   `RetrievalResult`: Search matches with scores and document types.
 
 ---
 
@@ -304,10 +349,8 @@ Here is a guide to the primary API routes available on the Aegis backend:
 *   `GET /session/{session_id}`: Retrieves the details of a session, including extracted patient details and chat history.
 *   `POST /analyze/copilot/`: Connects the physician directly to the Aegis Clinical Copilot. This chatbot remains grounded in the active patient context, clinical timeline, and active evidence, allowing physicians to ask follow-up questions about the case.
 
-### 🏛️ Governance & Review Endpoints
-*   `GET /governance/reviews/pending`: Lists all clinical reports currently held in the `PENDING_REVIEW` state due to low confidence scores or safety flag triggers.
-*   `POST /governance/review/{review_id}/approve`: Approves a held report, registering the approving clinician's ID and releasing the report.
-*   `POST /governance/review/{review_id}/reject`: Rejects a held report with notes, requiring the agent collective to rewrite or rethink the case.
+### 🏛️ Governance & Audit Endpoints
+*   `GET /governance/audit/events`: Retrieves the system audit trails and decision histories logged by the supervisor.
 
 ---
 
