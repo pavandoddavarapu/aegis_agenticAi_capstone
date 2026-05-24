@@ -8,7 +8,7 @@ export default function GroundingPanel() {
   
   const grounding = {
     hallucination_score: data ? 1 - (data.final_confidence || 1) : 0,
-    evidence_coverage: data ? (data.evidence_count > 0 ? 0.95 : 0.0) : 0,
+    evidence_coverage: data ? ((data.evidence_count || 0) > 0 ? 0.95 : 0.0) : 0,
     grounding_confidence: data?.final_confidence || 0,
     claims: [
       { text: "System analyzed the patient's symptoms based on clinical intent.", supported: true },

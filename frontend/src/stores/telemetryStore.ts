@@ -5,8 +5,10 @@ interface TelemetryEvent {
   dense_candidates?: number;
   sparse_candidates?: number;
   final_docs?: number;
-  top_score: number;
-  avg_score: number;
+  top_score?: number;
+  avg_score?: number;
+  node?: string;
+  confidence_score?: any;
 }
 
 interface TelemetryData {
@@ -14,11 +16,20 @@ interface TelemetryData {
   escalation_required?: boolean;
   risk_level?: string;
   events?: TelemetryEvent[];
+  query_type?: string;
+  selected_workflow?: string;
+  workflow?: string;
+  status?: string;
+  evidence_count?: number;
+  retry_count?: number;
+  final_confidence?: number;
+  query_hash?: string;
 }
 
 interface TelemetryTimeline {
   request_id?: string;
-  timeline?: Array<{ node: string; success: boolean }>;
+  total_ms?: number;
+  timeline?: Array<{ node: string; duration_ms: number; success: boolean }>;
 }
 
 interface TelemetryMetrics {
