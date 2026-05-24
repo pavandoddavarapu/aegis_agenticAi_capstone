@@ -560,7 +560,7 @@ async def run_workflow(
         f"risk={final.get('risk_level')} | "
         f"evidence_sufficiency={(final.get('evidence_quality_summary') or {}).get('overall_sufficiency', 'n/a')} | "
         f"contradictions={(final.get('contradiction_report') or {}).get('has_contradictions', False)} | "
-        f"confidence={final.get('validation_score', 0):.3f} | "
+        f"confidence={(final.get('validation_score') or 0.0):.3f} | "
         f"clarification_required={final.get('clarification_required', False)} | "
         f"total_ms={trace_summary.get('total_ms')}"
     )

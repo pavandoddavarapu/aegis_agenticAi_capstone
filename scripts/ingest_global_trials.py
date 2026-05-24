@@ -1,4 +1,4 @@
-"""
+ """
 ingest_global_trials.py — Massive global clinical trials graph ingestion
 """
 import asyncio
