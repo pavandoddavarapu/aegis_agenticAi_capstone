@@ -127,7 +127,18 @@ CREATE TABLE IF NOT EXISTS evaluation_results (
 class TelemetryStorage:
     """Dual-backend telemetry storage: PostgreSQL + Redis."""
 
+    _instance = None
+    _initialized = False
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls, *args, **kwargs)
+        return cls._instance
+
     def __init__(self):
+        if self._initialized:
+            return
+        self._initialized = True
         self._pg_pool  = None
         self._redis    = None
         self._ready    = False
