@@ -35,8 +35,10 @@ import {
   RotateCcw,
   TrendingUp,
   Compass,
-  HelpCircle
+  HelpCircle,
+  FileDown
 } from "lucide-react";
+import { getApiBase } from "@/lib/utils";
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -1472,12 +1474,41 @@ export default function ConversationalChatPanel() {
     await executeAnalysis(activeAnalysisQuery, answers);
   };
 
+  const handleExportPDF = () => {
+    if (!sessionId) return;
+    const apiBase = getApiBase();
+    window.open(`${apiBase}/session/${sessionId}/export`, "_blank");
+  };
+
   // Sub-components are defined at module scope above (SectionItem, RetrievalEngineCard,
   // EvidenceSourceRow, TraceViewer, CollapsibleReport, MessageItem) to give them stable
   // React component identities and eliminate per-keystroke flicker/remount.
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{backgroundColor: '#f8fafc'}}>
+      {/* Chat Panel Header */}
+      <div className="px-6 py-3.5 border-b border-slate-200/80 bg-white flex items-center justify-between shrink-0 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xs">
+            💬
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-slate-800 leading-none">Conversational Session</h3>
+            <p className="text-[9px] text-slate-500 mt-1 font-semibold">Active multi-turn context</p>
+          </div>
+        </div>
+        
+        {sessionId && messages.length > 0 && (
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 text-[10px] text-blue-600 hover:text-blue-550 font-bold border border-blue-200 hover:border-blue-300 rounded-lg px-3 py-1.5 bg-blue-50/40 hover:bg-blue-50 transition-all shadow-sm"
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            <span>Export Case PDF</span>
+          </button>
+        )}
+      </div>
+
       {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 custom-scrollbar">
         {messages.length === 0 ? (

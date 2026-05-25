@@ -56,3 +56,5 @@ celery                    # Async Background Tasks
 sentry-sdk[fastapi]       # Error Monitoring
 tenacity                  # Retry Handling
 email-validator           # Pydantic Email Validation
+fpdf2                     # Server-side PDF generation
+
