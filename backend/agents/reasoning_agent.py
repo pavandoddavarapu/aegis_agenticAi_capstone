@@ -12,6 +12,7 @@ Design principle: the LLM is a *synthesizer*, not an oracle.
 It only interprets evidence that the retrieval agent already fetched.
 """
 import os
+import json
 from backend.models.state import AgentState
 from backend.utils.logger import logger
 from backend.utils.groq_pool import groq_chat_with_retry
@@ -83,6 +84,56 @@ SEMANTIC EVIDENCE:
 Provide a structured clinical analysis grounded in all evidence above.
 When visual findings are present, acknowledge and integrate them explicitly.
 """
+
+
+# ── Patient Context Extraction from Report ─────────────────────────────────────
+
+def _extract_patient_context_from_report(reasoning_text: str) -> dict:
+    try:
+        model = "llama-3.1-8b-instant" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini"
+        prompt = f"""You are a clinical data extraction assistant.
+Analyze the following clinical reasoning report and extract structured patient data.
+
+Return ONLY a JSON object with this exact structure:
+{{
+  "age": "<string, e.g. 65>",
+  "gender": "<string, male or female>",
+  "chief_complaint": "<string, primary complaint>",
+  "vitals": {{
+    "bp": "<string, e.g. 140/92>",
+    "hr": "<string, e.g. 92>",
+    "o2": "<string, e.g. 89%>",
+    "temp": "<string, e.g. 37.1>",
+    "rr": "<string, e.g. 20>"
+  }},
+  "symptoms": ["<list of strings>"],
+  "extracted_conditions": ["<list of conditions like diabetes, hypertension>"],
+  "medications": ["<list of medications>"],
+  "allergies": ["<list of allergies>"]
+}}
+
+No other text or formatting. If a field is missing, use null or empty list/dict.
+
+Report:
+{reasoning_text}
+"""
+        messages = [{"role": "user", "content": prompt}]
+        res = groq_chat_with_retry(
+            model=model,
+            messages=messages,
+            max_tokens=300,
+            temperature=0.0
+        )
+        content = res.choices[0].message.content.strip()
+        if "```" in content:
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        data = json.loads(content.strip())
+        return data
+    except Exception as e:
+        logger.warning(f"Failed to extract patient context from report: {e}")
+        return {}
 
 
 # ── Agent Node ────────────────────────────────────────────────────────────────
@@ -180,8 +231,30 @@ def reasoning_agent(state: AgentState) -> dict:
         )
         reasoning = response.choices[0].message.content.strip()
         logger.info("[ReasoningAgent] Reasoning complete.")
+
+        # Extract patient context dynamically from the reasoning report
+        extracted_ctx = _extract_patient_context_from_report(reasoning)
+        state_ctx = dict(state.get("patient_context") or {})
+        if extracted_ctx:
+            for k, v in extracted_ctx.items():
+                if v:
+                    state_ctx[k] = v
+            # Set presence flags for orchestration planners / UI
+            if extracted_ctx.get("vitals"):
+                state_ctx["vitals_present"] = True
+                # Map structured vitals to expected flat format if needed
+                state_ctx["extracted_vitals"] = {**state_ctx.get("extracted_vitals", {}), **extracted_ctx["vitals"]}
+            if extracted_ctx.get("medications"):
+                state_ctx["medications_present"] = True
+                state_ctx["extracted_medications"] = list(set(state_ctx.get("extracted_medications", []) + extracted_ctx["medications"]))
+            if extracted_ctx.get("allergies"):
+                state_ctx["allergies_present"] = True
+            if extracted_ctx.get("extracted_conditions"):
+                state_ctx["history_present"] = True
+
         return {
             "reasoning_output": reasoning,
+            "patient_context":  state_ctx,
             "workflow_path":    ["reason"],
         }
 
