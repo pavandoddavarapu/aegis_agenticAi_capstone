@@ -1278,12 +1278,27 @@ export default function ConversationalChatPanel() {
     setStatus("analyzing");
     setStreamingStage("plan");
     setStreamingMessage("🧠 Planning execution strategy...");
-    setActiveAnalysisQuery(queryText);
+    
+    // Enrich query with files context if present in the workspace
+    let finalQuery = queryText;
+    if (files && files.length > 0) {
+      const fileContext: string[] = [];
+      files.forEach(f => {
+        if (f.status === "ready") {
+          fileContext.push(`File: "${f.name}" (${f.type})`);
+        }
+      });
+      if (fileContext.length > 0) {
+        finalQuery = `${queryText} [Context: ${fileContext.join(", ")} is uploaded in the workspace session]`;
+      }
+    }
+
+    setActiveAnalysisQuery(finalQuery);
     setError(null);
 
     try {
       await runAnalysisWithStreaming(
-        queryText,
+        finalQuery,
         sessionId,
         clarificationAnswers,
         (stage, msg) => {
@@ -1371,6 +1386,15 @@ export default function ConversationalChatPanel() {
 
     // Build context
     const parts: string[] = [];
+    
+    // Inject uploaded files text findings into copilot context
+    if (files && files.length > 0) {
+      files.forEach(f => {
+        if (f.status === "ready" && f.extractedFindings) {
+          parts.push(`[Uploaded File Findings: ${f.name} (${f.type})] ${f.extractedFindings}`);
+        }
+      });
+    }
     if (result) {
       parts.push(`Clinical intent: ${result.clinical_intent ?? "unknown"}`);
       parts.push(`Confidence: ${result.confidence_label} (${Math.round((result.confidence_score ?? 0) * 100)}%)`);
