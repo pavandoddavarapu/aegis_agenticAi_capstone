@@ -1261,6 +1261,13 @@ export default function ConversationalChatPanel() {
     // ── Tier 3: Always analyze — explicit patient intake ─────────────────────
     if (hasPatientSignals) return "analyze";
 
+    // If files are uploaded and user is asking to analyze or referencing the uploads, force "analyze" workflow
+    const isExplicitUploadAnalysis = files.length > 0 && 
+      /\b(analyse|analyze|read|process|check|run|diagnose|review|evaluate|interpret)\b/i.test(cleanQuery) &&
+      /\b(report|case|pdf|file|upload|ecg|xray|image|document|doc)\b/i.test(cleanQuery);
+
+    if (isExplicitUploadAnalysis) return "analyze";
+
     // ── Tier 4: Follow-up context ─────────────────────────────────────────────
     // If there's an existing result (prior analysis), shorter queries are follow-ups
     if (result && cleanQuery.length < 60) return "copilot";
