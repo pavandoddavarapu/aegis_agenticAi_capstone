@@ -10,7 +10,7 @@ Architecture:
 """
 from __future__ import annotations
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from backend.graphrag.graph_client  import GraphClient
 from backend.graphrag               import cypher_templates as CQL

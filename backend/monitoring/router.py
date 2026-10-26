@@ -34,7 +34,6 @@ _storage   = TelemetryStorage()    # lazy-initialised singleton
 
 async def _get_storage() -> TelemetryStorage:
     """Return initialized storage singleton."""
-    global _storage
     if not _storage._ready:
         await _storage.initialize()
     return _storage
