@@ -23,6 +23,7 @@ Design principles:
   6. Rate-limited — 60/minute (same as /analyze/).
 """
 import os
+import re
 import time
 from typing import List, Dict, Any, Optional
 
@@ -41,7 +42,7 @@ router = APIRouter(prefix="/analyze", tags=["copilot"])
 # ── LLM Configuration ─────────────────────────────────────────────────────────
 
 COPILOT_MODEL   = os.getenv("COPILOT_MODEL") or ("gemini-2.5-flash" if os.getenv("GEMINI_API_KEY") else ("llama-3.1-8b-instant" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini"))
-COPILOT_TOKENS  = 400
+COPILOT_TOKENS  = 1000
 COPILOT_TEMP    = 0.25       # low temperature → consistent, reproducible answers
 
 
@@ -394,6 +395,40 @@ async def copilot_chat(
             )
         except Exception as e:
             logger.error(f"[CopilotAPI] Dynamic research failed: {e}")
+
+    # ── Phase 13E: Retrieve Uploaded Document & Medical Knowledge from Qdrant ──
+    try:
+        # Check if an uploaded document filename exists in clinical_context
+        detected_files = re.findall(r'[\w\-\.]+\.(?:pdf|png|jpg|jpeg|dcm)', clinical_context, re.IGNORECASE)
+        if detected_files:
+            from backend.rag.qdrant_store import _get_client, COLLECTION_NAME
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            q_client = _get_client()
+            for target_file in detected_files[:2]:
+                scroll_filter = Filter(must=[FieldCondition(key="source", match=MatchValue(value=target_file))])
+                points, _ = q_client.scroll(collection_name=COLLECTION_NAME, scroll_filter=scroll_filter, limit=12, with_payload=True)
+                if points:
+                    file_chunks = []
+                    for pt in points:
+                        txt = pt.payload.get("text", "").strip()
+                        pg = pt.payload.get("page", 1)
+                        if txt:
+                            file_chunks.append(f"[Page {pg}]: {txt}")
+                    if file_chunks:
+                        file_context = "\n\n".join(file_chunks[:10])
+                        clinical_context = f"{clinical_context}\n\n=== EXTRACTED REPORT FINDINGS ({target_file}) ===\n{file_context}"
+                        sources_used.append(f"Uploaded Document: {target_file}")
+                        logger.info(f"[CopilotAPI] Injected {len(file_chunks)} chunks for uploaded file: {target_file}")
+
+        # Also perform semantic vector retrieval for the user's specific question
+        from backend.rag.retriever import retrieve_evidence
+        rag_res = retrieve_evidence(question, top_k=5)
+        if rag_res and rag_res.results:
+            rag_blocks = [f"[{r.source}]: {r.text.strip()}" for r in rag_res.results if r.text.strip()]
+            if rag_blocks:
+                clinical_context = f"{clinical_context}\n\n=== RELEVANT CLINICAL EVIDENCE ===\n" + "\n\n".join(rag_blocks)
+    except Exception as rag_err:
+        logger.warning(f"[CopilotAPI] Qdrant document chunk retrieval failed: {rag_err}")
 
     try:
         messages = _build_messages(
