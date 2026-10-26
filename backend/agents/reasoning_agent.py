@@ -21,8 +21,7 @@ from backend.guardrails import PromptGuardrail  # Phase 14
 _prompt_guardrail = PromptGuardrail()
 
 
-# ── LLM Configuration ─────────────────────────────────────────────────────────
-REASONING_MODEL = "llama-3.3-70b-versatile" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini"
+REASONING_MODEL = os.getenv("REASONING_MODEL") or ("llama-3.1-8b-instant" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini")
 MAX_TOKENS      = 800
 TEMPERATURE     = 0.2                    # low temp → consistent medical output
 

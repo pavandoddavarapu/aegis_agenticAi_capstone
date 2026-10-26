@@ -217,7 +217,18 @@ class GroqKeyPool:
                     self.mark_key_connection_error(key)
                 
                 else:
-                    # Non-transient error — don't rotate, just raise
+                    # Model not found or tier revoked — try fast fallback model
+                    if ("does not exist" in exc_str or "do not have access" in exc_str or "404" in exc_str) and not is_gemini and model != "llama-3.1-8b-instant":
+                        logger.warning(f"[GroqPool] Model '{model}' unavailable on Groq. Falling back to 'llama-3.1-8b-instant'...")
+                        return self.chat_with_retry(
+                            model="llama-3.1-8b-instant",
+                            messages=messages,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            response_format=response_format,
+                            **kwargs,
+                        )
+                    # Non-transient error — log and raise
                     logger.error(f"[GroqPool] Non-transient error with key {key_suffix}: {exc_str[:200]}")
                     raise
         
@@ -270,26 +281,32 @@ def groq_chat_with_retry(
 ):
     """
     Module-level convenience wrapper for key pool chat_with_retry().
-    Automatically routes between Groq and Gemini and handles fallback.
+    Automatically routes between Groq and Gemini, handles fallbacks gracefully.
     """
     pool = get_pool()
     
-    if not pool.has_keys(model):
-        # Fallback to OpenAI
-        openai_key = os.getenv("OPENAI_API_KEY")
+    if pool.has_keys(model):
+        try:
+            return pool.chat_with_retry(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                response_format=response_format,
+                **kwargs,
+            )
+        except Exception as pool_err:
+            logger.warning(f"[GroqPool] Primary chat failed ({pool_err}). Trying fallback...")
+
+    # Fallback to OpenAI if key is present
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key and openai_key not in ["your_key", ""]:
+        logger.info("[GroqPool] Falling back to OpenAI gpt-4o-mini...")
         client = OpenAI(api_key=openai_key)
-        # Map models if needed
-        target_model = "gpt-4o-mini"
-        kw = dict(model=target_model, messages=messages, max_tokens=max_tokens, temperature=temperature)
+        kw = dict(model="gpt-4o-mini", messages=messages, max_tokens=max_tokens, temperature=temperature)
         if response_format:
             kw["response_format"] = response_format
         return client.chat.completions.create(**kw)
-    
-    return pool.chat_with_retry(
-        model=model,
-        messages=messages,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        response_format=response_format,
-        **kwargs,
-    )
+
+    # Re-raise if no other fallback
+    raise RuntimeError(f"All LLM providers and fallbacks failed for model {model}")
