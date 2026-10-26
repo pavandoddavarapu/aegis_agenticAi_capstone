@@ -217,11 +217,11 @@ class GroqKeyPool:
                     self.mark_key_connection_error(key)
                 
                 else:
-                    # Model not found or tier revoked — try fast fallback model
-                    if ("does not exist" in exc_str or "do not have access" in exc_str or "404" in exc_str) and not is_gemini and model != "llama-3.1-8b-instant":
-                        logger.warning(f"[GroqPool] Model '{model}' unavailable on Groq. Falling back to 'llama-3.1-8b-instant'...")
+                    # Model not found or key invalid on Groq — try Gemini if available
+                    if not is_gemini and self._gemini_keys:
+                        logger.warning(f"[GroqPool] Groq failed ({exc_str[:120]}). Automatically switching to Gemini (gemini-2.5-flash)...")
                         return self.chat_with_retry(
-                            model="llama-3.1-8b-instant",
+                            model="gemini-2.5-flash",
                             messages=messages,
                             max_tokens=max_tokens,
                             temperature=temperature,

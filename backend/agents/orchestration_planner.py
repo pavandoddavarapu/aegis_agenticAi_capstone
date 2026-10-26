@@ -60,7 +60,7 @@ from backend.utils.logger import logger
 from backend.utils.groq_pool import groq_chat_with_retry
 
 
-PLANNER_MODEL = "llama-3.1-8b-instant" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini"
+PLANNER_MODEL = os.getenv("PLANNER_MODEL") or ("gemini-2.5-flash" if os.getenv("GEMINI_API_KEY") else ("llama-3.1-8b-instant" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini"))
 # Absolute hard cap: regardless of max_retries setting, never allow more than this
 ABSOLUTE_MAX_RETRIES = 6
 

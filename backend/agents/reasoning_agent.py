@@ -21,7 +21,7 @@ from backend.guardrails import PromptGuardrail  # Phase 14
 _prompt_guardrail = PromptGuardrail()
 
 
-REASONING_MODEL = os.getenv("REASONING_MODEL") or ("llama-3.1-8b-instant" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini")
+REASONING_MODEL = os.getenv("REASONING_MODEL") or ("gemini-2.5-flash" if os.getenv("GEMINI_API_KEY") else ("llama-3.1-8b-instant" if os.getenv("GROQ_API_KEY") else "gpt-4o-mini"))
 MAX_TOKENS      = 800
 TEMPERATURE     = 0.2                    # low temp → consistent medical output
 
