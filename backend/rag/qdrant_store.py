@@ -32,6 +32,9 @@ from backend.rag.schemas import Chunk
 from backend.rag.embeddings import EMBEDDING_DIMENSION
 from backend.utils.logger import logger
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # ─── Configuration ─────────────────────────────────────────────────────────────
 QDRANT_URL = os.getenv("QDRANT_URL", "http://127.0.0.1:6333")
 COLLECTION_NAME = "medical_docs"
@@ -44,9 +47,12 @@ def _get_client() -> QdrantClient:
     """Lazy-initialize Qdrant client as a singleton."""
     global _client
     if _client is None:
-        logger.info(f"[Qdrant Store] Connecting to Qdrant at {QDRANT_URL}")
+        raw_url = os.getenv("QDRANT_URL") or QDRANT_URL or "http://127.0.0.1:6333"
+        target_url = raw_url.strip()
+        logger.info(f"[Qdrant Store] Connecting to Qdrant at {target_url}")
         api_key = os.getenv("QDRANT_API_KEY")
-        _client = QdrantClient(url=QDRANT_URL, api_key=api_key, timeout=60)
+        api_key = api_key.strip() if api_key and api_key.strip() else None
+        _client = QdrantClient(url=target_url, api_key=api_key, timeout=60)
     return _client
 
 

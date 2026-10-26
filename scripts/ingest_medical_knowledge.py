@@ -47,9 +47,13 @@ from typing import List, Dict
 
 # ─── Make sure project root is on the path ─────────────────────────────────
 import os
+from dotenv import load_dotenv
+
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
+
+load_dotenv(os.path.join(_ROOT, ".env"))
 
 from backend.rag.ingestors.web_ingestor import (
     ingest_wikipedia, ingest_medlineplus, ingest_pubmed,

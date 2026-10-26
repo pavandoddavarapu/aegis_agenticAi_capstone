@@ -28,6 +28,9 @@ from __future__ import annotations
 
 import os
 from typing import Any, Dict, List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from backend.graphrag.schema import SCHEMA_CYPHER
 from backend.utils.logger import logger
@@ -64,26 +67,41 @@ class GraphClient:
         if self._ready:
             return True
 
-        uri      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
-        user     = os.getenv("NEO4J_USER",     "neo4j")
-        password = os.getenv("NEO4J_PASSWORD",  "password")
+        uri      = (os.getenv("NEO4J_URI") or "bolt://localhost:7687").strip()
+        user     = (os.getenv("NEO4J_USER") or "neo4j").strip()
+        password = (os.getenv("NEO4J_PASSWORD") or "password").strip()
 
         try:
             from neo4j import AsyncGraphDatabase
             self._driver = AsyncGraphDatabase.driver(
                 uri, auth=(user, password),
                 max_connection_pool_size=20,
-                connection_timeout=5.0,
+                connection_timeout=15.0,
             )
-            await self._driver.verify_connectivity()
+            try:
+                await self._driver.verify_connectivity()
+            except Exception as auth_err:
+                if ("unauthorized" in str(auth_err).lower() or "authentication" in str(auth_err).lower()) and user != "neo4j":
+                    logger.info(f"[GraphClient] Auth failed for user '{user}', trying 'neo4j'...")
+                    await self._driver.close()
+                    user = "neo4j"
+                    self._driver = AsyncGraphDatabase.driver(
+                        uri, auth=(user, password),
+                        max_connection_pool_size=20,
+                        connection_timeout=15.0,
+                    )
+                    await self._driver.verify_connectivity()
+                else:
+                    raise auth_err
+
             await self._apply_schema()
             self._ready = True
-            logger.info(f"[GraphClient] Connected to Neo4j: {uri}")
+            logger.info(f"[GraphClient] Successfully connected to Neo4j: {uri} (user: {user})")
             return True
         except ImportError:
             logger.warning("[GraphClient] neo4j package not installed — graph disabled.")
         except Exception as exc:
-            logger.warning(f"[GraphClient] Neo4j unavailable: {exc} — graph disabled.")
+            logger.warning(f"[GraphClient] Neo4j connection failed ({uri}): {exc} — graph disabled.")
         return False
 
     async def close(self):
