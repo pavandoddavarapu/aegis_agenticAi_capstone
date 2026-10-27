@@ -63,9 +63,12 @@ _NON_MEDICAL_BLOCKLIST = [
 # PII patterns to detect and scrub
 _PII_PATTERNS: List[Tuple[str, str, str]] = [
     # (pattern, replacement, label)
+    (r"(?i)\b(patient(?:\s+name)?|name|pt\.?\s*name)\s*[:=]\s*(?:mr\.?|ms\.?|mrs\.?|dr\.?|shri|smt\.?)?\s*([A-Za-z]+(?:\s+[A-Za-z]+){1,3})", r"\1: [PATIENT_NAME]", "patient_name"),
+    (r"\b(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b", "[PATIENT_NAME]", "honorific_name"),
     (r"\b[A-Z][a-z]+\s+[A-Z][a-z]+\b(?=\s+(is|has|age|patient|presents|dob|born))", "[PATIENT_NAME]", "name"),
     (r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b", "[PHONE_REDACTED]", "phone"),
     (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL_REDACTED]", "email"),
+    (r"(?i)\b(mrn|uhid|patient\s*id|bar\s*code|ipd\s*no|opd\s*no|sample\s*id|accession\s*(?:no|number)?)\s*[:=]\s*[A-Za-z0-9\-\/]+", r"\1: [ID_REDACTED]", "patient_id"),
     (r"\b(NHS|NHI|MRN|DOB|SSN|NIN)[:\s#-]*[A-Z0-9]{5,12}\b", "[ID_REDACTED]", "patient_id"),
     (r"\b\d{4}[-/]\d{2}[-/]\d{2}\b", "[DATE_REDACTED]", "dob"),   # ISO date (could be DOB)
     (r"\b(patient\s+(name|id)\s*[:=]\s*)[^\s,\.]+", r"\1[REDACTED]", "patient_field"),

@@ -91,9 +91,10 @@ def chunk_pages(pages: List[ExtractedPage]) -> List[Chunk]:
 
     Strategy:
       1. Iterate over each extracted page.
-      2. Split the page text on detected medical section headers.
-      3. For each section block, slide fixed-size overlapping windows.
-      4. Tag every chunk with its detected section name (or None).
+      2. De-identify/scrub direct patient PII (names, phone numbers, identifiers).
+      3. Split the page text on detected medical section headers.
+      4. For each section block, slide fixed-size overlapping windows.
+      5. Tag every chunk with its detected section name (or None).
 
     Args:
         pages: List of ExtractedPage objects from any ingestor.
@@ -101,12 +102,18 @@ def chunk_pages(pages: List[ExtractedPage]) -> List[Chunk]:
     Returns:
         List of Chunk objects ready for embedding.
     """
+    from backend.guardrails.input_guardrail import _PII_PATTERNS
+
     all_chunks: List[Chunk] = []
     global_index = 0
 
     for page in pages:
         text = page.text
         source = page.source
+
+        # Redact direct PII / PHI (names, numbers, IDs) before chunking and embedding
+        for raw_pattern, replacement, _ in _PII_PATTERNS:
+            text = re.sub(raw_pattern, replacement, text)
 
         # Split on section headers, keeping the delimiter
         parts = SECTION_PATTERN.split(text)

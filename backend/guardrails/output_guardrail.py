@@ -55,6 +55,23 @@ _DIRECT_PRESCRIPTION_SIGNALS = [
     r"your\s+dose\s+should\s+be\s+\d+",
 ]
 
+# PHI / PII de-identification patterns to prevent patient identity exposure
+_PHI_REDACTION_PATTERNS = [
+    # Explicit labeled patient name e.g. "Patient Name: John Doe", "Name : Jane Smith", "Patient: Mr. Bob White"
+    (r"(?i)\b(patient(?:\s+name)?|name|pt\.?\s*name)\s*[:=]\s*(?:mr\.?|ms\.?|mrs\.?|dr\.?|shri|smt\.?)?\s*([A-Za-z]+(?:\s+[A-Za-z]+){1,3})", r"\1: [PATIENT NAME REDACTED]"),
+    # General honorific names e.g. "Mr. John Doe", "Mrs. Jane Doe"
+    (r"\b(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b", "[PATIENT REDACTED]"),
+    # MRN, UHID, Patient ID, National IDs
+    (r"(?i)\b(mrn|uhid|patient\s*id|bar\s*code|ipd\s*no|opd\s*no|sample\s*id|accession\s*(?:no|number)?)\s*[:=]\s*[A-Za-z0-9\-\/]+", r"\1: [ID REDACTED]"),
+    # Phone numbers
+    (r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b", "[PHONE REDACTED]"),
+    # Email addresses
+    (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL REDACTED]"),
+    # Aadhaar, SSN, National IDs
+    (r"\b\d{4}[-\s]\d{4}[-\s]\d{4}\b", "[NATIONAL ID REDACTED]"),
+    (r"\b\d{3}-\d{2}-\d{4}\b", "[SSN REDACTED]"),
+]
+
 # Emergency escalation keywords in output body that require top-level flagging
 _EMERGENCY_PATTERNS = [
     r"\bSTEMI\b",
@@ -203,12 +220,24 @@ class OutputGuardrail:
             warnings.append("Mandatory clinical disclaimer appended.")
             reasons.append("DISCLAIMER_ENFORCED")
 
-        # ── 5. Critical risk level → force escalation flag ────────────────────
+        # ── 5. PHI / PII de-identification ────────────────────────────────────
+        phi_redacted = False
+        for raw_pattern, replacement in _PHI_REDACTION_PATTERNS:
+            new_text, count = re.subn(raw_pattern, replacement, modified)
+            if count > 0:
+                modified = new_text
+                phi_redacted = True
+
+        if phi_redacted:
+            warnings.append("Patient identifiers (PHI) detected and redacted from response.")
+            reasons.append("PHI_REDACTED")
+
+        # ── 6. Critical risk level → force escalation flag ────────────────────
         if risk_level == "critical" and not escalation_needed:
             escalation_needed = True
             reasons.append("CRITICAL_RISK_LEVEL_ESCALATION")
 
-        # ── 6. Response length sanity ─────────────────────────────────────────
+        # ── 7. Response length sanity ─────────────────────────────────────────
         if len(response.strip()) < 50:
             warnings.append(
                 "Response is extremely short. Clinical completeness may be insufficient."

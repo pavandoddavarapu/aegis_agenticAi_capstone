@@ -35,8 +35,11 @@ from backend.utils.logger import logger
 from backend.api.rate_limiter import limiter
 from backend.session.session_store import session_store
 from backend.utils.groq_pool import groq_chat_with_retry
+from backend.guardrails import InputGuardrail, OutputGuardrail
 
 router = APIRouter(prefix="/analyze", tags=["copilot"])
+_input_guardrail = InputGuardrail()
+_output_guardrail = OutputGuardrail()
 
 
 # ── LLM Configuration ─────────────────────────────────────────────────────────
@@ -63,14 +66,15 @@ For these, give a clear, evidence-based answer. Do NOT ask for patient details.
 Answer specific questions about the analyzed case. Ground every answer in the provided context.
 
 STRICT GUIDELINES:
-1. NEVER ask for patient demographics/vitals for general knowledge questions.
-2. GROUND patient-specific answers in the provided clinical context and evidence. Never invent clinical facts.
-3. Be CONCISE. Physicians are busy. Aim for 100-200 words unless the question demands detail.
-4. When evidence quality is LOW or WEAK, explicitly say so in your answer.
-5. When contradictions exist, mention them and recommend physician judgment.
-6. Always end answers that involve clinical recommendations with a disclaimer about professional judgment.
-7. Use clinical language appropriate for physicians.
-8. Format responses with bullet points or short sections when listing multiple items.
+1. NEVER reveal, repeat, or output identifiable patient private health information (PHI) such as patient full names, phone numbers, home addresses, or national IDs. Always refer to the patient generically (e.g. "the patient", "the 45-year-old male").
+2. NEVER ask for patient demographics/vitals for general knowledge questions.
+3. GROUND patient-specific answers in the provided clinical context and evidence. Never invent clinical facts.
+4. Be CONCISE. Physicians are busy. Aim for 100-200 words unless the question demands detail.
+5. When evidence quality is LOW or WEAK, explicitly say so in your answer.
+6. When contradictions exist, mention them and recommend physician judgment.
+7. Always end answers that involve clinical recommendations with a disclaimer about professional judgment.
+8. Use clinical language appropriate for physicians.
+9. Format responses with bullet points or short sections when listing multiple items.
 
 DISCLAIMER TO INCLUDE when making clinical recommendations:
 "⚕️ This is AI-assisted analysis. Final clinical decisions require physician judgment."
@@ -314,12 +318,26 @@ async def copilot_chat(
     """
     import asyncio
     start_ms = time.time()
-    question = body.question.strip()
+    raw_question = body.question.strip()
+
+    # ── Phase 14: Input Guardrail & PII Scrubbing ───────────────────────────
+    input_check = _input_guardrail.check(raw_question)
+    if input_check.blocked:
+        return CopilotResponse(
+            answer=f"⚠️ {input_check.block_reason}",
+            sources_used=["guardrails"],
+            confidence="low",
+            processing_ms=int((time.time() - start_ms) * 1000),
+            session_id=body.session_id,
+        )
+
+    question = input_check.sanitized
     logger.info(
         f"[CopilotAPI] Question: '{question[:80]}' "
         f"context_len={len(body.clinical_context)} "
         f"history_turns={len(body.conversation_history)} "
-        f"session_id={body.session_id}"
+        f"session_id={body.session_id} "
+        f"pii_scrubbed={input_check.pii_found}"
     )
 
     # ── Phase 13: Session-aware context enrichment ────────────────────────────
@@ -445,11 +463,20 @@ async def copilot_chat(
             temperature = COPILOT_TEMP,
         )
 
-        answer = response.choices[0].message.content.strip()
+        raw_answer = response.choices[0].message.content.strip()
+
+        # ── Phase 14: Output Guardrail & PHI Redaction ────────────────────────
+        out_check = _output_guardrail.check(
+            response=raw_answer,
+            risk_level="low",
+            query=question,
+        )
+        answer = out_check.modified_response
         elapsed_ms = int((time.time() - start_ms) * 1000)
 
         logger.info(
-            f"[CopilotAPI] Answer generated: {len(answer)} chars in {elapsed_ms}ms"
+            f"[CopilotAPI] Answer generated: {len(answer)} chars in {elapsed_ms}ms "
+            f"(guardrail_safe={out_check.safe}, reasons={out_check.reasons})"
         )
 
         # ── Phase 13: Append to session history ───────────────────────────────
